@@ -1,11 +1,11 @@
-{
-	"mcpServers": {
-		"dev-memory-local": {
-			"command": "node",
-			"args": [
-				"${workspaceFolder}/packages/vscode-extension/dist/mcp-server.bundle.js"
-			],
-			"disabled": false
-		}
-	}
-}
+// {
+// 	"mcpServers": {
+// 		"dev-memory-local": {
+// 			"command": "node",
+// 			"args": [
+// 				"${workspaceFolder}/packages/vscode-extension/dist/mcp-server.bundle.js"
+// 			],
+// 			"disabled": false
+// 		}
+// 	}
+// }
