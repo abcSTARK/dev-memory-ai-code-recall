@@ -1,0 +1,1 @@
+{"root":["./src/chunk.ts","./src/embed.ts","./src/index.ts","./src/ingest.ts","./src/search.ts","./src/test-core.ts","./src/types.ts","./src/vector-store.ts"],"version":"5.9.3"}

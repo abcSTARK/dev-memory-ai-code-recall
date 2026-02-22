@@ -3,7 +3,7 @@ import { chunkFile } from "./chunk";
 import { storeChunks } from "./vector-store";
 
 export async function ingestProject(rootPath: string): Promise<void> {
-  const files = await glob.glob(
+  const files: string[] = await glob.glob(
     "**/*.{ts,js,tsx,jsx,md,py,java,kt,go,rs,c,cpp,h,cs,rb,php,swift,scala,sh,json,yml,yaml,xml,txt}",
     {
       cwd: rootPath,
@@ -11,14 +11,14 @@ export async function ingestProject(rootPath: string): Promise<void> {
     }
   );
   // Post-filter forbidden directories/files
-  const forbidden = [
+  const forbidden: string[] = [
     "/node_modules/",
     "/dist/",
     "/.git/",
     "/.venv/",
     "/build/",
     "/target/",
-    "/__pycache__/",
+    "/__pycache__",
     "/.idea/",
     "/.vscode/",
     ".egg-info",
@@ -71,16 +71,18 @@ export async function ingestProject(rootPath: string): Promise<void> {
     ".env",
     ".sample"
   ];
-  const filteredFiles = files.filter(f => !forbidden.some(seg => f.includes(seg)));
+  const filteredFiles: string[] = files.filter((f: string) => !forbidden.some((seg: string) => f.includes(seg)));
   console.log(`[ingest] Found ${filteredFiles.length} files (filtered from ${files.length}).`);
-  console.log(`[ingest] Found ${files.length} files.`);
-
   for (const [i, filePath] of filteredFiles.entries()) {
     console.log(`[ingest] Processing file ${i + 1}/${filteredFiles.length}: ${filePath}`);
-    const chunks = await chunkFile(filePath);
-    console.log(`[ingest] Chunked into ${chunks.length} chunks.`);
-    await storeChunks(filePath, chunks);
-    console.log(`[ingest] Stored chunks for ${filePath}`);
+    try {
+      const chunks = await chunkFile(filePath);
+      console.log(`[ingest] Chunked into ${chunks.length} chunks.`);
+      await storeChunks(filePath, chunks);
+      console.log(`[ingest] Stored chunks for ${filePath}`);
+    } catch (err) {
+      console.log(`[ingest] Error processing ${filePath}:`, err);
+    }
   }
   console.log(`[ingest] All files processed.`);
 }

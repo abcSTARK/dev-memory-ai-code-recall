@@ -133,11 +133,31 @@ Responsibilities:
 -   Uses shared core package
 -   Communicates via stdio
 
-Compatible with:
 
--   GitHub Copilot (MCP mode)
--   RooCode
--   Any MCP-compatible agent
+------------------------------------------------------------------------
+
+# 🧪 Testing MCP Server (Local)
+
+To test ingestion and see logs, run:
+
+```bash
+echo '{"tool":"ingest_project","params":{"rootPath":"/workspaces/dev-memory-ai-code-recall"}}' | npx ts-node packages/mcp-server/src/index.ts
+```
+
+This will:
+- Start the MCP server
+- Register tools
+- Process the ingest request
+- Show detailed logs for each file
+
+You can use similar commands for other tools, e.g.:
+
+```bash
+echo '{"tool":"semantic_search","params":{"query":"<your search query>"}}' | npx ts-node packages/mcp-server/src/index.ts
+```
+Replace `<your search query>` with your desired text.
+
+------------------------------------------------------------------------
 
 ------------------------------------------------------------------------
 
