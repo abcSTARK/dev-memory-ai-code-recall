@@ -86,14 +86,37 @@ sequenceDiagram
 
 ------------------------------------------------------------------------
 
+
 # 🧠 Core Responsibilities (@devmemory/core)
 
--   File ingestion
+-   File ingestion (robust filtering)
 -   Chunking
 -   Local embeddings (Xenova Transformers)
 -   LanceDB integration
 -   Semantic search
 -   Query embedding
+
+## API
+
+```ts
+// Ingests all relevant files in a project, skipping dependencies and build artifacts
+async function ingestProject(rootPath: string): Promise<void>
+
+// Performs semantic search over indexed chunks
+async function semanticSearch(query: string, k?: number): Promise<SearchResult[]>
+```
+
+## Folder/File Filtering Logic
+
+- Only source code, README, and test files are ingested
+- Excludes common dependency, build, and artifact folders:
+  - node_modules, dist, .git, .venv, build, target, __pycache__, .idea, .vscode, *.egg-info, *.class, *.jar, *.pyc, .DS_Store, *.lock, *.log, *.tmp, *.bak, *.swp, *.swo, *.out, *.bin, *.exe, *.dll, *.obj, *.o, *.a, *.so, *.dylib, *.zip, *.tar, *.gz, *.bz2, *.xz, *.7z, *.pdf, *.png, *.jpg, *.jpeg, *.gif, *.svg, *.mp3, *.mp4, *.mov, *.avi, *.mkv, *.webm, *.iso, *.dmg, *.app, *.apk, *.ipa, *.csv, *.tsv, *.db, *.sqlite, *.env, *.sample
+- Filtering is enforced both via glob ignore and post-processing to ensure no forbidden files are processed
+- This prevents accidental ingestion of large, irrelevant, or binary files and keeps the memory engine focused on meaningful project content
+
+## Filtering Challenge
+
+Glob ignore patterns alone may not work reliably with absolute paths or deeply nested folders. To guarantee exclusion, a post-filter step checks each file path for forbidden segments before processing. This ensures bulletproof filtering for all project types (Node.js, Python, Java, etc.) and keeps ingestion fast and relevant.
 
 ------------------------------------------------------------------------
 

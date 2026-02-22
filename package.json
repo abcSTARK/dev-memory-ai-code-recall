@@ -1,0 +1,16 @@
+{
+    "name": "dev-memory-ai-code-recall",
+    "private": true,
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "build": "turbo build",
+        "dev": "turbo dev",
+        "lint": "turbo lint"
+    },
+    "devDependencies": {
+        "turbo": "^2.0.0",
+        "typescript": "^5.0.0"
+    }
+}
