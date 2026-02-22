@@ -134,6 +134,30 @@ async function prepare() {
     // non-fatal
   }
 
+  // Explicitly ensure the full @lancedb package (including platform-specific
+  // optional subpackages) is copied into the embedded mcp-server node_modules.
+  try {
+    const embeddedMcpNodeModules = path.join(out, 'packages', 'mcp-server', 'node_modules');
+    const repoLancedb = path.join(repoRoot, 'node_modules', '@lancedb');
+    const targetLancedb = path.join(embeddedMcpNodeModules, '@lancedb');
+    if (fs.existsSync(repoLancedb)) {
+      // Ensure target directory exists
+      await fse.mkdirp(targetLancedb);
+      const entries = await fs.promises.readdir(repoLancedb);
+      for (const entry of entries) {
+        const src = path.join(repoLancedb, entry);
+        const dest = path.join(targetLancedb, entry);
+        if (!fs.existsSync(dest)) {
+          await fse.copy(src, dest).catch((e) => {
+            console.warn(`Failed to copy @lancedb/${entry}:`, e && e.message);
+          });
+        }
+      }
+    }
+  } catch (err) {
+    // non-fatal
+  }
+
   // As a last-resort option, copy the entire repo node_modules into the embedded
   // mcp-server node_modules. This is heavy-handed but ensures all installed
   // transitive dependencies (including tslib and native-supporting packages)
@@ -177,6 +201,26 @@ async function prepare() {
     path.join(out, 'package.json'),
     JSON.stringify(pkg, null, 2)
   );
+
+  // Ensure the embedded mcp-server package.json includes runtime deps from the core package
+  // so that a runtime `npm install --production` executed by the launcher does not prune
+  // copied packages like @lancedb. Merge core dependencies into embedded mcp-server package.json.
+  try {
+    const embeddedMcpPackageJson = path.join(out, 'packages', 'mcp-server', 'package.json');
+    const corePkgPath = path.join(repoRoot, 'packages', 'core', 'package.json');
+    if (fs.existsSync(embeddedMcpPackageJson) && fs.existsSync(corePkgPath)) {
+      const embeddedPkg = require(embeddedMcpPackageJson);
+      const corePkg = require(corePkgPath);
+      embeddedPkg.dependencies = embeddedPkg.dependencies || {};
+      // Copy runtime dependencies from core into embedded mcp-server dependencies
+      for (const [dep, ver] of Object.entries(corePkg.dependencies || {})) {
+        if (!embeddedPkg.dependencies[dep]) embeddedPkg.dependencies[dep] = ver;
+      }
+      await fs.promises.writeFile(embeddedMcpPackageJson, JSON.stringify(embeddedPkg, null, 2));
+    }
+  } catch (err) {
+    // non-fatal
+  }
 
   console.log('Prepared clean VSCE package folder.');
 }

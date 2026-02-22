@@ -1,10 +1,12 @@
-// Tool handler registry
-export type ToolHandler = (params: any) => Promise<any>;
-export const toolHandlers: Record<string, ToolHandler> = {};
-
-export function registerTool(name: string, handler: ToolHandler) {
-  toolHandlers[name] = handler;
-  // Write debug/log messages to stderr so stdout remains reserved for MCP protocol JSON messages
-  // Use console.error rather than console.log to avoid corrupting stdio-based JSON RPC.
-  console.error(`[MCP] Tool registered: ${name}`);
+// Legacy tool registry removed. This module is kept as a compatibility shim
+// but will throw if called. Use the MCP SDK server.registerTool API instead.
+export function registerTool() {
+  throw new Error('Legacy tool registry removed. Register tools via the MCP SDK server.registerTool API.');
 }
+
+export function listTools() {
+  throw new Error('Legacy tool registry removed. Use the MCP SDK server.registerTool API.');
+}
+
+export const toolHandlers = {} as any;
+export const toolMetadata = {} as any;

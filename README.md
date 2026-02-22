@@ -119,45 +119,69 @@ Glob ignore patterns alone may not work reliably with absolute paths or deeply n
 
 ------------------------------------------------------------------------
 
+
 # MCP Server (@devmemory/mcp)
 
-The MCP server exposes a small set of tools over a stdio protocol so agents
-and the VS Code extension can call into the core library:
+The MCP server exposes a small set of tools using the official Model Context
+Protocol SDK (`@modelcontextprotocol/sdk`). The server communicates over
+stdin/stdout using the MCP JSON-RPC wire format and is discoverable by
+MCP-compatible hosts and inspectors.
 
+Tools provided by the server (examples):
 - `ingest_project` — index a workspace into `storage/lancedb`
 - `semantic_search` — run a query against an indexed project (accepts `rootPath`)
 - `remember_note` — persist small notes into a separate table
 - `project_summary` — produce a short summary of the project
 
-Important: MCP requests which operate on the DB must include the `rootPath`
-parameter (or else the server will look for a database relative to the MCP
-process current working directory). The extension sets `rootPath` for you when
-running commands from an open workspace.
-
+Important notes:
+- The server now uses the official MCP SDK and advertises tools via
+  `tools/list` and accepts calls via `tools/call` JSON-RPC methods.
+- The legacy ad-hoc protocol that accepted `{ "tool": "name", "params": { ... } }`
+  messages has been removed — please use the MCP JSON-RPC endpoints.
+- MCP requests which operate on the DB must include the `rootPath` parameter
+  so the server reads/writes the workspace LanceDB at `rootPath/storage/lancedb`.
 
 ------------------------------------------------------------------------
 
-# Testing the MCP server (local)
+## Testing the MCP server (local)
 
-Quick one-shot test (start the MCP server and run a single tool):
+Prerequisites: install runtime deps for the MCP server package (only needs to
+be done once per workspace):
 
 ```bash
-echo '{"tool":"ingest_project","params":{"rootPath":"/path/to/your/workspace"}}' \
-  | npx ts-node packages/mcp-server/src/index.ts
+npm --prefix packages/mcp-server install @modelcontextprotocol/sdk zod
+```
+
+Build and run the server (compiled JS):
+
+```bash
+npm --prefix packages/mcp-server run build
+node packages/mcp-server/dist/index.js
+```
+
+Or run directly from TypeScript in dev with tsx:
+
+```bash
+npx tsx packages/mcp-server/src/index.ts
+```
+
+Tools discovery example (request a list of registered tools):
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+  | node packages/mcp-server/dist/index.js
+```
+
+Call a tool (JSON-RPC `tools/call`) — example calling `semantic_search`:
+
+```bash
+echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"semantic_search","arguments":{"query":"readme","k":5,"rootPath":"/path/to/your/workspace"}}}' \
+  | node packages/mcp-server/dist/index.js
 ```
 
 Notes:
-- Use the full absolute `rootPath` so the MCP server stores and reads the
-  LanceDB files under `rootPath/storage/lancedb`.
-- The server writes diagnostic logs to stderr and returns JSON on stdout.
-
-If you prefer the bundled node-based server (what the extension uses) you can
-pipe requests into the bundled bundle that lives in `packages/vscode-extension/dist/mcp-server.bundle.js`:
-
-```bash
-echo '{"tool":"semantic_search","params":{"query":"readme","k":5,"rootPath":"/path/to/your/workspace"}}' \
-  | node packages/vscode-extension/dist/mcp-server.bundle.js
-```
+- The server writes diagnostic logs to stderr and returns JSON-RPC responses on stdout.
+- If you use the bundled server distributed with the VS Code extension, point your host to the bundled bundle or let the extension register it automatically in `.vscode/mcp.json`.
 
 ------------------------------------------------------------------------
 
