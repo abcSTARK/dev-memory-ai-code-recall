@@ -1,17 +1,16 @@
-# Dev Memory --- AI Code Recall
+# Dev Memory — AI Code Recall
 
-## Local-First Memory Engine for AI Coding Agents
+Dev Memory is a local-first AI memory engine that provides persistent,
+semantic recall for your codebase. It enables fast, private, and offline
+semantic search over your project by embedding source files into a local
+vector store (LanceDB) and exposing a small MCP server for integration with
+agents and the included VS Code extension.
 
-Dev Memory is a zero-config, fully local AI memory engine that provides
-persistent semantic recall for your codebase.
-
-It runs:
-
--   🧠 Local RAG engine (embeddings + vector search)
--   🔌 MCP server for agent integration
--   🧩 VS Code extension for installation and lifecycle management
-
-No API keys. No cloud. No configuration required.
+Key principles:
+-  Local-first: no cloud services, no API keys.
+-  Zero-config: works with plain workspaces and writes storage inside the
+  workspace under `storage/lancedb/`.
+-  Developer-focused UX: tight VS Code integration, easy re-index and search.
 
 ------------------------------------------------------------------------
 
@@ -87,23 +86,23 @@ sequenceDiagram
 ------------------------------------------------------------------------
 
 
-# 🧠 Core Responsibilities (@devmemory/core)
+# Core responsibilities (what the product does)
 
--   File ingestion (robust filtering)
--   Chunking
--   Local embeddings (Xenova Transformers)
--   LanceDB integration
--   Semantic search
--   Query embedding
+- File ingestion and robust filtering (skips node_modules, build artifacts,
+  binaries, etc.)
+- Chunking (splits long files into searchable passages)
+- Local embeddings using Xenova transformer pipelines
+- Persistent vector storage with LanceDB
+- Semantic search and simple note remembering APIs
 
-## API
+API (library)
 
 ```ts
 // Ingests all relevant files in a project, skipping dependencies and build artifacts
 async function ingestProject(rootPath: string): Promise<void>
 
 // Performs semantic search over indexed chunks
-async function semanticSearch(query: string, k?: number): Promise<SearchResult[]>
+async function semanticSearch(query: string, k?: number, rootPath?: string): Promise<SearchResult[]>
 ```
 
 ## Folder/File Filtering Logic
@@ -120,59 +119,69 @@ Glob ignore patterns alone may not work reliably with absolute paths or deeply n
 
 ------------------------------------------------------------------------
 
-# 🔌 MCP Server (@devmemory/mcp)
+# MCP Server (@devmemory/mcp)
 
-Responsibilities:
+The MCP server exposes a small set of tools over a stdio protocol so agents
+and the VS Code extension can call into the core library:
 
--   Implements MCP protocol
--   Exposes tools:
-    -   ingest_project
-    -   semantic_search
-    -   remember_note
-    -   project_summary
--   Uses shared core package
--   Communicates via stdio
+- `ingest_project` — index a workspace into `storage/lancedb`
+- `semantic_search` — run a query against an indexed project (accepts `rootPath`)
+- `remember_note` — persist small notes into a separate table
+- `project_summary` — produce a short summary of the project
+
+Important: MCP requests which operate on the DB must include the `rootPath`
+parameter (or else the server will look for a database relative to the MCP
+process current working directory). The extension sets `rootPath` for you when
+running commands from an open workspace.
 
 
 ------------------------------------------------------------------------
 
-# 🧪 Testing MCP Server (Local)
+# Testing the MCP server (local)
 
-To test ingestion and see logs, run:
+Quick one-shot test (start the MCP server and run a single tool):
 
 ```bash
-echo '{"tool":"ingest_project","params":{"rootPath":"/workspaces/dev-memory-ai-code-recall"}}' | npx ts-node packages/mcp-server/src/index.ts
+echo '{"tool":"ingest_project","params":{"rootPath":"/path/to/your/workspace"}}' \
+  | npx ts-node packages/mcp-server/src/index.ts
 ```
 
-This will:
-- Start the MCP server
-- Register tools
-- Process the ingest request
-- Show detailed logs for each file
+Notes:
+- Use the full absolute `rootPath` so the MCP server stores and reads the
+  LanceDB files under `rootPath/storage/lancedb`.
+- The server writes diagnostic logs to stderr and returns JSON on stdout.
 
-You can use similar commands for other tools, e.g.:
+If you prefer the bundled node-based server (what the extension uses) you can
+pipe requests into the bundled bundle that lives in `packages/vscode-extension/dist/mcp-server.bundle.js`:
 
 ```bash
-echo '{"tool":"semantic_search","params":{"query":"<your search query>"}}' | npx ts-node packages/mcp-server/src/index.ts
+echo '{"tool":"semantic_search","params":{"query":"readme","k":5,"rootPath":"/path/to/your/workspace"}}' \
+  | node packages/vscode-extension/dist/mcp-server.bundle.js
 ```
-Replace `<your search query>` with your desired text.
 
 ------------------------------------------------------------------------
 
 ------------------------------------------------------------------------
 
-# 🧩 VS Code Extension
+# VS Code extension
 
-Name: Dev Memory --- AI Code Recall
+Name: Dev Memory — AI Code Recall
 
-Responsibilities:
+What it does:
+- Starts the MCP server (bundled with the extension when available) and
+  registers a workspace-level MCP entry in `.vscode/mcp.json`.
+- Provides two main commands in the command palette:
+  - `Dev Memory: Index Project` — runs `ingest_project` for the current workspace
+  - `Dev Memory: Search Project Memory` — prompts for a query and runs `semantic_search`
 
--   Starts MCP server as child process
--   Registers MCP server automatically
--   Provides commands:
-    -   Index Project
-    -   Search Project Memory
--   Handles lifecycle + UX
+Important operational note
+--------------------------
+Currently, the extension does not persist a live incremental index across
+VS Code host reloads. That means after you reload the window (or restart the
+extension host) you must manually re-run `Dev Memory: Index Project` to
+recreate the workspace index before search will return results. Put another
+way: indexing is explicit and manual today. We surface a clear warning in the
+UI and the output channel to remind you to re-index when relevant.
 
 ------------------------------------------------------------------------
 
@@ -281,13 +290,14 @@ mcpLauncher.ts │ └── assets/
 
 ------------------------------------------------------------------------
 
-# 💾 Storage
+# Storage and logs
 
-Persistent local storage:
+- Vector database: `storage/lancedb/` under the workspace root (LanceDB files)
+- Log file: `.vscode/devmemory.log` inside the workspace (the extension
+  appends MCP and launcher logs here so you can tail them with `tail -F`)
 
-/storage/lancedb/
-
-No external services required.
+If you delete `storage/lancedb` you remove the project's index and will need
+to re-run `Index Project` to recreate it.
 
 ------------------------------------------------------------------------
 

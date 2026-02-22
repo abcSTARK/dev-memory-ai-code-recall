@@ -1,0 +1,13 @@
+.vscode
+node_modules
+!packages/**/node_modules/**
+.git/
+../../.git/
+src/**/*.test.ts
+test/
+dist/**/*.map
+*.log
+*.md
+CHANGELOG.md
+README.md
+LICENSE

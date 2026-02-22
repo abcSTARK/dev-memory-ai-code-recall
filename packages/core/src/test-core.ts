@@ -3,14 +3,14 @@ import path from "path";
 
 async function main() {
   const rootPath = path.resolve(__dirname, "../../../../"); // Workspace root
-  console.log("Ingesting project...");
+  console.error("Ingesting project...");
   await ingestProject(rootPath);
-  console.log("Ingestion complete.");
+  console.error("Ingestion complete.");
 
   const query = "memory engine";
-  console.log(`Searching for: ${query}`);
+  console.error(`Searching for: ${query}`);
   const results = await semanticSearch(query, 3);
-  console.log("Search results:", results);
+  console.error("Search results:", results);
 }
 
 main().catch(err => {

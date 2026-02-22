@@ -61,5 +61,12 @@ __pycache__/
 *.env
 *.sample
 
-# LanceDB storage
-storage/lancedb/
+# LanceDB storage (ignore any storage/lancedb anywhere in the repo)
+**/storage/lancedb/
+**/storage/lancedb/**
+# Ignore embedded storage created by the extension when running inside VS Code
+packages/vscode-extension/storage/
+
+# VSIX artifacts
+**/*.vsix
+packages/vscode-extension/.vsce-dist/

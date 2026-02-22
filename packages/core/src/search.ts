@@ -2,9 +2,9 @@ import { embedText } from "./embed";
 import { searchVectors } from "./vector-store";
 import { SearchResult } from "./types";
 
-export async function semanticSearch(query: string, k = 5): Promise<SearchResult[]> {
+export async function semanticSearch(query: string, k = 5, rootPath?: string): Promise<SearchResult[]> {
   const queryEmbedding = await embedText(query);
-  const results = await searchVectors(queryEmbedding, k);
+  const results = await searchVectors(rootPath, queryEmbedding, k);
 
   return results.map((r: any) => ({
     filePath: r.filePath,

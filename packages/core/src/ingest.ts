@@ -72,17 +72,17 @@ export async function ingestProject(rootPath: string): Promise<void> {
     ".sample"
   ];
   const filteredFiles: string[] = files.filter((f: string) => !forbidden.some((seg: string) => f.includes(seg)));
-  console.log(`[ingest] Found ${filteredFiles.length} files (filtered from ${files.length}).`);
+  console.error(`[ingest] Found ${filteredFiles.length} files (filtered from ${files.length}).`);
   for (const [i, filePath] of filteredFiles.entries()) {
-    console.log(`[ingest] Processing file ${i + 1}/${filteredFiles.length}: ${filePath}`);
+  console.error(`[ingest] Processing file ${i + 1}/${filteredFiles.length}: ${filePath}`);
     try {
       const chunks = await chunkFile(filePath);
-      console.log(`[ingest] Chunked into ${chunks.length} chunks.`);
-      await storeChunks(filePath, chunks);
-      console.log(`[ingest] Stored chunks for ${filePath}`);
+  console.error(`[ingest] Chunked into ${chunks.length} chunks.`);
+      await storeChunks(rootPath, filePath, chunks);
+  console.error(`[ingest] Stored chunks for ${filePath}`);
     } catch (err) {
-      console.log(`[ingest] Error processing ${filePath}:`, err);
+  console.error(`[ingest] Error processing ${filePath}: ${err}`);
     }
   }
-  console.log(`[ingest] All files processed.`);
+  console.error(`[ingest] All files processed.`);
 }
