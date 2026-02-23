@@ -28,6 +28,33 @@ This is how the extension runs embeddings from a single VSIX without requiring u
 2. Click **Index Project**.
 3. Run a query from the webview or use `Dev Memory: Search Project Memory`.
 
+## Copilot + MCP usage
+
+If GitHub Copilot Chat has MCP enabled, select `#devmemory-local` and ask workspace questions in plain language.
+
+Verified prompt style:
+
+- `Search this codebase for where welcome page command is registered.`
+
+Recommended prompts:
+
+- `Search this codebase for how indexing works.`
+- `Summarize this repository architecture.`
+- `Answer from codebase: where is semantic_search implemented?`
+
+Preferred MCP tool names used by this server:
+
+- `index_codebase`
+- `search_codebase`
+- `summarize_codebase`
+- `save_project_note`
+- `get_embedding_status`
+- `answer_from_codebase`
+
+Legacy aliases are also supported:
+
+- `ingest_project`, `semantic_search`, `project_summary`, `remember_note`, `embedding_status`
+
 ## Notes
 
 - Indexing is explicit/manual today.

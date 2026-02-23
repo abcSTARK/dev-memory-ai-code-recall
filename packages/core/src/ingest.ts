@@ -1,10 +1,10 @@
 import { glob } from "glob";
 import path from "path";
-import { chunkFile } from "./chunk";
+import { chunkFileWithMetadata } from "./chunk";
 import { embedText } from "./embed";
-import { initializeStore, addEmbedding } from "./vector-store";
+import { initializeStore, addEmbedding, clearStore } from "./vector-store";
 
-export async function ingestProject(rootPath: string): Promise<void> {
+export async function ingestProject(rootPath: string, opts?: { force?: boolean }): Promise<void> {
   const files: string[] = await glob.glob(
     "**/*.{ts,js,tsx,jsx,md,py,java,kt,go,rs,c,cpp,h,cs,rb,php,swift,scala,sh,json,yml,yaml,xml,txt}",
     {
@@ -98,19 +98,31 @@ export async function ingestProject(rootPath: string): Promise<void> {
   });
   // prepare store once
   initializeStore(rootPath);
+  if (opts?.force) {
+    clearStore();
+    console.error("[ingest] Force reindex enabled: cleared existing index.");
+  }
   console.error(`[ingest] Found ${filteredFiles.length} files (filtered from ${files.length}).`);
   for (const [i, filePath] of filteredFiles.entries()) {
     console.error(`[ingest] Processing file ${i + 1}/${filteredFiles.length}: ${filePath}`);
     try {
-      const chunks = await chunkFile(filePath);
+      const chunks = await chunkFileWithMetadata(filePath);
       console.error(`[ingest] Chunked into ${chunks.length} chunks.`);
       for (const [j, chunk] of chunks.entries()) {
-        const embedding = await embedText(chunk);
+        const embedding = await embedText(chunk.text);
         addEmbedding({
           id: `${filePath}#${j}`,
-          text: chunk,
+          text: chunk.text,
           embedding: Array.from(embedding),
-          metadata: { filePath }
+          metadata: {
+            filePath,
+            chunkIndex: j,
+            startLine: chunk.startLine,
+            endLine: chunk.endLine,
+            kind: chunk.kind,
+            symbolName: chunk.symbolName,
+            language: chunk.language
+          }
         });
       }
       console.error(`[ingest] Stored chunks for ${filePath}`);

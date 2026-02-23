@@ -34,10 +34,8 @@ export function register(server: any, ctx?: { z?: any }) {
   const inputSchema = z
     ? z.object({
         question: z.string().min(2).describe("User question about this codebase."),
-        workspace_root: z.string().optional().describe("Workspace root path. Preferred over rootPath."),
-        rootPath: z.string().optional().describe("Legacy alias for workspace_root."),
+        workspace_root: z.string().optional().describe("Workspace root path."),
         top_k: z.number().int().min(1).max(20).optional().describe("How many chunks to retrieve (1-20)."),
-        k: z.number().int().min(1).max(20).optional().describe("Legacy alias for top_k."),
         auto_index: z
           .boolean()
           .optional()
@@ -56,8 +54,8 @@ export function register(server: any, ctx?: { z?: any }) {
     },
     async (params: any) => {
       const question = params?.question || "";
-      const root = params?.workspace_root || params?.rootPath || process.cwd();
-      const topK = params?.top_k ?? params?.k ?? 5;
+      const root = params?.workspace_root || process.cwd();
+      const topK = params?.top_k ?? 5;
       const autoIndex = params?.auto_index !== false;
 
       console.error("[MCP] answer_from_codebase called with", {

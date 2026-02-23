@@ -6,8 +6,7 @@ export function register(server: any, ctx?: { z?: any }) {
     ? z
         .object({
           warmup: z.boolean().optional().describe("If true, initialize embedding runtime before returning status."),
-          workspace_root: z.string().optional().describe("Workspace root path. Optional for compatibility."),
-          rootPath: z.string().optional().describe("Legacy alias for workspace_root.")
+          workspace_root: z.string().optional().describe("Workspace root path.")
         })
         .optional()
     : undefined;
@@ -17,7 +16,7 @@ export function register(server: any, ctx?: { z?: any }) {
         await warmupEmbedding();
       }
       const status = getEmbeddingStatus();
-      console.error("[MCP] embedding_status", status);
+      console.error("[MCP] get_embedding_status", status);
       return {
         ...status,
         content: [
@@ -34,18 +33,6 @@ export function register(server: any, ctx?: { z?: any }) {
     {
       title: "Get Embedding Status",
       description: "Returns active embedding provider/runtime status. Useful for diagnostics and health checks.",
-      inputSchema,
-      outputSchema: undefined
-    },
-    handler
-  );
-
-  // Backward-compatible alias
-  server.registerTool(
-    "embedding_status",
-    {
-      title: "Embedding Status (Legacy Alias)",
-      description: "Legacy alias for get_embedding_status.",
       inputSchema,
       outputSchema: undefined
     },

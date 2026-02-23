@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Added embedding runtime status surface (`xenova-wasm` vs fallback) in welcome page.
-- Added MCP tool `embedding_status` and warmup path.
+- Added MCP tool `get_embedding_status` and warmup path.
+- Removed legacy MCP tool aliases in favor of canonical names only.
 - Added command `Dev Memory: Open Welcome Page`.
 - Improved welcome page styling for VS Code theme visibility.
 - Switched packaging to include runtime dependencies under `dist/runtime/node_modules` for single-VSIX Xenova WASM usage.

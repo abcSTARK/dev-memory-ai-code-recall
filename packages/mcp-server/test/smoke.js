@@ -81,15 +81,15 @@ async function main() {
     const listReq = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
     server.stdin.write(frameMessage(listReq));
 
-    // After a short pause, call semantic_search (if available)
+    // After a short pause, call search_codebase
     setTimeout(() => {
       const callReq = {
         jsonrpc: '2.0',
         id: 2,
         method: 'tools/call',
         params: {
-          name: 'semantic_search',
-          arguments: { query: 'readme', k: 3, rootPath: process.cwd() },
+          name: 'search_codebase',
+          arguments: { query: 'readme', top_k: 3, workspace_root: process.cwd() },
         },
       };
       server.stdin.write(frameMessage(callReq));

@@ -196,7 +196,7 @@ async function refreshEmbeddingStatus(panel: vscode.WebviewPanel, rootPath?: str
   try {
     const statusRaw = await sendMCPRequest(mcpProcess, {
       method: "tools/call",
-      params: { name: "embedding_status", arguments: { ...(rootPath ? { rootPath } : {}), warmup } }
+      params: { name: "get_embedding_status", arguments: { ...(rootPath ? { workspace_root: rootPath } : {}), warmup } }
     });
     const status = parseEmbeddingStatus(statusRaw);
     const provider = status.provider || "uninitialized";
@@ -309,7 +309,7 @@ export function activate(context: vscode.ExtensionContext) {
           }
           const res = await sendMCPRequest(mcpProcess, {
             method: "tools/call",
-            params: { name: "ingest_project", arguments: { rootPath, force: Boolean(message.force) } }
+            params: { name: "index_codebase", arguments: { workspace_root: rootPath, force_reindex: Boolean(message.force) } }
           });
           welcomePanel!.webview.postMessage({ type: "result", data: res });
           await refreshEmbeddingStatus(welcomePanel!, rootPath);
@@ -326,7 +326,7 @@ export function activate(context: vscode.ExtensionContext) {
           }
           const res = await sendMCPRequest(mcpProcess, {
             method: "tools/call",
-            params: { name: "semantic_search", arguments: { query: message.query, k: 10, rootPath } }
+            params: { name: "search_codebase", arguments: { query: message.query, top_k: 10, workspace_root: rootPath } }
           });
 
           let parsed = res;
@@ -380,7 +380,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
       const result = await sendMCPRequest(mcpProcess, {
         method: "tools/call",
-        params: { name: "ingest_project", arguments: { rootPath } }
+        params: { name: "index_codebase", arguments: { workspace_root: rootPath } }
       });
       outputChannel.appendLine("[Dev Memory] Indexing complete.");
       outputChannel.appendLine(JSON.stringify(result, null, 2));
@@ -399,7 +399,7 @@ export function activate(context: vscode.ExtensionContext) {
       const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       const result = await sendMCPRequest(mcpProcess, {
         method: "tools/call",
-        params: { name: "semantic_search", arguments: { query, rootPath } }
+        params: { name: "search_codebase", arguments: { query, workspace_root: rootPath } }
       });
       outputChannel.appendLine("[Dev Memory] Search results:");
       outputChannel.appendLine(JSON.stringify(result, null, 2));

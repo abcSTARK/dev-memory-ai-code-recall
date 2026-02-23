@@ -105,6 +105,17 @@ export function addEmbedding(item: {
 }
 
 /**
+ * Clear all stored embeddings for the currently initialized workspace.
+ */
+export function clearStore(): void {
+  if (!storeFilePath) {
+    throw new Error("Store not initialized");
+  }
+  store = [];
+  saveStore();
+}
+
+/**
  * Search the store for the k nearest items (cosine similarity).
  */
 export function searchSimilar(

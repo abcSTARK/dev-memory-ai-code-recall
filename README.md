@@ -1,37 +1,58 @@
 # Dev Memory — AI Code Recall
 
-Dev Memory is a local-first memory engine for AI coding workflows. It indexes your workspace into a local semantic store and serves recall through MCP and a VS Code extension.
+Dev Memory is a local-first memory engine for AI coding workflows.
 
-## Current status (implemented)
+It indexes your workspace into a local semantic store and serves recall through MCP and a VS Code extension, so coding agents and humans can query project knowledge in natural language.
 
-- Local embeddings: `@xenova/transformers` (WASM path) with dynamic loading.
-- Local vector store: JSON file with cosine search at `.dev-memory/index.json`.
-- MCP tools (preferred names):
+## Value Proposition
+
+- Zero cloud dependency for core retrieval workflow
+- Better AI code recall with local semantic search
+- Faster developer onboarding and debugging through project memory
+- Built for MCP-native agent ecosystems
+
+## Why It Is Helpful for Developers
+
+- Reduces “where is this implemented?” hunting time
+- Keeps responses grounded in your repository, not generic model priors
+- Works across mixed-language repos
+- Preserves privacy for proprietary code
+
+## Why It Can Be Lucrative
+
+- Clear ROI for teams: reduced engineering hours lost to context lookup
+- Strong fit for enterprise buyers requiring local/private-first tooling
+- MCP integration makes it sticky in agent-based developer workflows
+- Expandable into paid offerings: team memory sync, governance, enterprise controls
+
+## Current Status (Implemented)
+
+- Local embeddings via `@xenova/transformers` (WASM path, dynamic loading)
+- Local vector store with cosine search at `.dev-memory/index.json`
+- MCP tools:
   - `index_codebase`
   - `search_codebase`
   - `summarize_codebase`
   - `save_project_note`
   - `get_embedding_status`
   - `answer_from_codebase`
-- MCP tools (legacy aliases still supported):
-  - `ingest_project`
-  - `semantic_search`
-  - `project_summary`
-  - `remember_note`
-  - `embedding_status`
 - VS Code extension:
   - Starts bundled MCP server
   - Registers workspace MCP config in `.vscode/mcp.json`
-  - Welcome webview with Index/Search UX
-  - Embedding provider status shown in UI (`xenova-wasm` vs fallback)
-  - Command to reopen welcome page
+  - Welcome webview for index + search
+  - Embedding provider visibility in UI (`xenova-wasm` vs fallback)
+  - `Dev Memory: Open Welcome Page` command
 
-## Not in scope today
+## Tech Stack
 
-- LanceDB is not used in current runtime.
-- Native ONNX runtime packaging is not required for normal usage.
+- TypeScript monorepo (`packages/core`, `packages/mcp-server`, `packages/vscode-extension`)
+- VS Code Extension API
+- MCP SDK (`@modelcontextprotocol/sdk`)
+- Local embeddings: `@xenova/transformers` + `onnxruntime-web`
+- Local persistence: JSON index file (workspace-local)
+- Build/packaging: TypeScript + esbuild + VSCE
 
-## Monorepo layout
+## Monorepo Layout
 
 ```text
 packages/
@@ -40,7 +61,7 @@ packages/
   vscode-extension/ # VS Code extension
 ```
 
-## Core behavior
+## Core Behavior
 
 `@devmemory/core` provides:
 
@@ -54,7 +75,7 @@ Storage is workspace-local:
 
 - `.dev-memory/index.json` (vectors + metadata)
 
-## MCP server
+## MCP Server
 
 `@devmemory/mcp` uses the official MCP SDK over stdio.
 
@@ -72,7 +93,7 @@ echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"search_cod
   | node packages/mcp-server/dist/index.js
 ```
 
-## Copilot + MCP usage
+## Copilot + MCP Usage
 
 When using GitHub Copilot Chat with MCP enabled, select `#devmemory-local` and ask normal codebase questions.
 
@@ -84,16 +105,9 @@ Recommended prompts:
 
 - `Search this codebase for how indexing works.`
 - `Summarize this repository architecture.`
-- `Answer from codebase: where is semantic_search implemented?`
+- `Answer from codebase: where is search_codebase implemented?`
 
-Autonomous tool behavior is tuned so chat can choose tools by intent:
-
-- Use `search_codebase` for most “where/how is X implemented?” questions
-- Use `summarize_codebase` for high-level “what does this repo do?” questions
-- Use `index_codebase` after major file changes or first-time setup
-- Use `answer_from_codebase` for one-shot Q&A with cited files
-
-## VS Code extension
+## VS Code Extension
 
 Commands:
 
@@ -106,7 +120,7 @@ Notes:
 - Indexing is explicit/manual today.
 - After VS Code reload, rerun indexing before searching.
 
-## Packaging model (single VSIX)
+## Packaging Model (Single VSIX)
 
 The extension packages:
 
@@ -116,7 +130,7 @@ The extension packages:
 
 This allows one VSIX artifact to run without asking users to build native modules locally.
 
-## Build and package
+## Build and Package
 
 From repo root:
 
@@ -131,6 +145,11 @@ cd packages/vscode-extension && npm run package
 VSIX output:
 
 - `packages/vscode-extension/.vsce-dist/devmemory-ai-code-recall-1.0.0.vsix`
+
+## Not in Scope Today
+
+- LanceDB is not used in the current runtime
+- Native ONNX runtime packaging is not required for normal usage
 
 ## Privacy
 
