@@ -1,6 +1,6 @@
 # Dev Memory — AI Code Recall
 
-![Dev Memory screenshot](media/screenshot-1.png)
+![Dev Memory screenshot](https://raw.githubusercontent.com/abcSTARK/dev-memory-ai-code-recall/main/packages/vscode-extension/media/screenshot-1.png)
 
 Local-first semantic memory for your codebase and coding agents.
 
@@ -66,21 +66,21 @@ Example prompts:
 - JSON-based local vector index (`.dev-memory/index.json`)
 
 ## Branding and Screenshots
-![Dev Memory Logo](media/logo.png)
+![Dev Memory Logo](https://raw.githubusercontent.com/abcSTARK/dev-memory-ai-code-recall/main/packages/vscode-extension/media/logo.png)
 
 ## Screenshots
 
 Welcome page
-![Welcome Page](media/screenshot-1.png)
+![Welcome Page](https://raw.githubusercontent.com/abcSTARK/dev-memory-ai-code-recall/main/packages/vscode-extension/media/screenshot-1.png)
 
 Indexing workflow
-![Indexing](media/screenshot-2.png)
+![Indexing](https://raw.githubusercontent.com/abcSTARK/dev-memory-ai-code-recall/main/packages/vscode-extension/media/screenshot-2.png)
 
 Semantic search results
-![Search Results](media/screenshot-3.png)
+![Search Results](https://raw.githubusercontent.com/abcSTARK/dev-memory-ai-code-recall/main/packages/vscode-extension/media/screenshot-3.png)
 
 Copilot + MCP usage
-![Copilot MCP](media/screenshot-4.png)
+![Copilot MCP](https://raw.githubusercontent.com/abcSTARK/dev-memory-ai-code-recall/main/packages/vscode-extension/media/screenshot-4.png)
 
 ## Packaging Model
 

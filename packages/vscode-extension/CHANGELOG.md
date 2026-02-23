@@ -23,6 +23,10 @@
 
 - Version bump for Marketplace republish after `1.0.2` release.
 
+## 1.0.4
+
+- Fixed Marketplace README image rendering by switching media links to absolute GitHub raw URLs.
+
 ## 1.0.0
 
 - Initial release:
