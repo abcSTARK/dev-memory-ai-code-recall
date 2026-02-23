@@ -1,16 +1,15 @@
-import { pipeline } from "@xenova/transformers";
-
-let embedder: any;
-
-export async function getEmbedder() {
-  if (!embedder) {
-    embedder = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
-  }
-  return embedder;
-}
+// Simple deterministic embedding: map character codes into a fixed-size vector.
+// This avoids any native dependencies and keeps the extension lightweight.
 
 export async function embedText(text: string): Promise<Float32Array> {
-  const embedderInstance = await getEmbedder();
-  const embedding = await embedderInstance(text);
-  return Float32Array.from(embedding[0][0]);
+  const maxDim = 128;
+  const vec = new Float32Array(maxDim);
+  for (let i = 0; i < maxDim; i++) {
+    if (i < text.length) {
+      vec[i] = (text.charCodeAt(i) % 256) / 255;
+    } else {
+      vec[i] = 0;
+    }
+  }
+  return vec;
 }

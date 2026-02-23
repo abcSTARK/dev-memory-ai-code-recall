@@ -1,41 +1,128 @@
 import * as vscode from 'vscode';
-import { spawn, spawnSync, ChildProcessWithoutNullStreams } from 'child_process';
+import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 
-function buildMCPServer(workspaceRoot: string, outputChannel: vscode.OutputChannel): boolean {
-  const pkgDir = path.join(workspaceRoot, 'packages', 'mcp-server');
-  if (!fs.existsSync(pkgDir)) {
-    outputChannel.appendLine('[Dev Memory] MCP package folder not found: ' + pkgDir);
-    return false;
+// The extension previously communicated with a simple newline-delimited JSON
+// protocol. After upgrading to the official MCP SDK the server now expects the
+// standard framed JSON-RPC messages (Content-Length header).  `McpClient`
+// implements the minimal client-side framing, request/response matching, and
+// notification handling we need. It also listens for "notifications/message"
+// (logging messages) and forwards them to the output channel in a human-readable
+// form, restoring the detailed indexing/search logs the user was accustomed to.
+
+let mcpClientInstance: McpClient | undefined;
+let globalOutputChannel: vscode.OutputChannel | undefined;
+
+class McpClient {
+  proc: ChildProcessWithoutNullStreams;
+  outputChannel: vscode.OutputChannel;
+  buffer = '';
+  pending = new Map<number, { resolve: (res: any) => void; reject: (e: any) => void }>();
+  nextId = 1;
+
+  // sendRpc: a general JSON-RPC sender for top-level methods (e.g. "tools/list").
+  // This prevents callers from accidentally calling top-level methods via
+  // the `tools/call` wrapper and provides a clean separation between RPC
+  // methods and tool invocation.
+  sendRpc(method: string, params?: any): Promise<any> {
+    const id = this.nextId++;
+    const payload = {
+      jsonrpc: '2.0',
+      id,
+      method,
+      params
+    };
+    const line = JSON.stringify(payload) + '\n';
+    this.proc.stdin.write(line);
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+    });
   }
 
-  outputChannel.appendLine('[Dev Memory] Running npm install for mcp-server...');
-  const install = spawnSync('npm', ['install'], { cwd: pkgDir, shell: true });
-  if (install.stdout) outputChannel.appendLine(install.stdout.toString());
-  if (install.stderr) outputChannel.appendLine(install.stderr.toString());
-  if (install.status !== 0) {
-    outputChannel.appendLine('[Dev Memory] npm install failed for mcp-server.');
-    return false;
+  constructor(proc: ChildProcessWithoutNullStreams, outputChannel: vscode.OutputChannel) {
+    this.proc = proc;
+    this.outputChannel = outputChannel;
+
+    proc.stdout.on('data', (chunk) => this.onStdout(chunk));
+    proc.stderr.on('data', (chunk) => this.onStderr(chunk));
   }
 
-  outputChannel.appendLine('[Dev Memory] Building mcp-server (tsc)...');
-  const build = spawnSync('npx', ['tsc', '-p', 'tsconfig.json'], { cwd: pkgDir, shell: true });
-  if (build.stdout) outputChannel.appendLine(build.stdout.toString());
-  if (build.stderr) outputChannel.appendLine(build.stderr.toString());
-  if (build.status !== 0) {
-    outputChannel.appendLine('[Dev Memory] Build failed for mcp-server.');
-    return false;
+  onStdout(chunk: Buffer) {
+    const text = chunk.toString();
+    // we rely on the original launchMCPServer listener to mirror raw output
+    // (it also writes to the per-session log file). here our job is to feed
+    // the framing parser so that we can surface notifications in a more
+    // readable form and resolve pending responses.
+    this.buffer += text;
+    this.processBuffer();
   }
 
-  outputChannel.appendLine('[Dev Memory] mcp-server build complete.');
-  return true;
+  onStderr(chunk: Buffer) {
+    const text = chunk.toString();
+    this.outputChannel.appendLine(`[MCP-ERR] ${text}`);
+  }
+
+  processBuffer() {
+    // The stdio transport used by the SDK is *newline-delimited* JSON.  Each
+    // message must be a single line of JSON terminated by `\n`.  Earlier we
+    // incorrectly assumed the standard "Content-Length" framing; that caused
+    // messages to be ignored (the transport parsed the header line as JSON and
+    // dropped the body).  Here we simply split on newlines.
+    while (true) {
+      const idx = this.buffer.indexOf('\n');
+      if (idx === -1) break;
+      const line = this.buffer.slice(0, idx).trim();
+      this.buffer = this.buffer.slice(idx + 1);
+      if (!line) continue;
+      try {
+        const msg = JSON.parse(line);
+        this.handleMessage(msg);
+      } catch {
+        // ignore parse errors
+      }
+    }
+  }
+
+  handleMessage(msg: any) {
+    if (msg.method === 'notifications/message' && msg.params) {
+      const lvl = msg.params.level || 'info';
+      const data = msg.params.data;
+      this.outputChannel.appendLine(`[MCP-LOG ${lvl}] ${JSON.stringify(data)}`);
+      return;
+    }
+    if ('id' in msg) {
+      const id = msg.id;
+      const pending = this.pending.get(id);
+      if (pending) {
+        pending.resolve(msg.result ?? msg.error);
+        this.pending.delete(id);
+      }
+    }
+  }
+
+  send(tool: string, params: any): Promise<any> {
+    const id = this.nextId++;
+    const rpc = {
+      jsonrpc: '2.0',
+      id,
+      method: 'tools/call',
+      params: { name: tool, arguments: params }
+    };
+    // newline-delimited JSON is what the server expects.
+    const line = JSON.stringify(rpc) + '\n';
+    this.proc.stdin.write(line);
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+    });
+  }
 }
 
 export function launchMCPServer(extensionPath: string | undefined, outputChannel: vscode.OutputChannel): ChildProcessWithoutNullStreams | undefined {
-  // extensionPath is the installed extension folder (when running as a VSIX). Prefer using a bundled MCP server there.
+  globalOutputChannel = outputChannel; // remember for later client creation
+  mcpClientInstance = undefined; // clear any previous client wrapper
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  // Prepare a persistent log file in the workspace so users can tail full MCP logs.
+
   const createLogStream = (): fs.WriteStream | undefined => {
     try {
       if (!workspaceRoot) return undefined;
@@ -46,252 +133,74 @@ export function launchMCPServer(extensionPath: string | undefined, outputChannel
       stream.write(`\n[devmemory] --- New MCP session ${new Date().toISOString()} ---\n`);
       return stream;
     } catch (err) {
-      // Fail silently — logging is best-effort
       return undefined;
     }
   };
-  // Log environment so users can see why we pick a particular path
-  outputChannel.appendLine(`[Dev Memory] launcher: extensionPath=${extensionPath || '<none>'} workspaceRoot=${workspaceRoot || '<none>'}`);
-  if (!workspaceRoot && !extensionPath) {
-    outputChannel.appendLine('[Dev Memory] No workspace folder and no extension path available; cannot launch MCP server.');
-    return undefined;
-  }
-  if (!workspaceRoot) {
-    outputChannel.appendLine('[Dev Memory] No workspace folder found; will attempt to use bundled MCP in the extension path.');
-  }
 
-  // First try bundled MCP inside the extension installation path
+  outputChannel.appendLine(`[Dev Memory] launcher: extensionPath=${extensionPath || '<none>'} workspaceRoot=${workspaceRoot || '<none>'}`);
+
+  // determine path to the bundled server; prefer extension installation,
+  // fall back to workspace copy if running from source
   let mcpPath: string | undefined;
   if (extensionPath) {
-    const bundledBundle = path.join(extensionPath, 'dist', 'mcp-server.bundle.js');
-    const bundled = path.join(extensionPath, 'packages', 'mcp-server', 'dist', 'index.js');
-    if (fs.existsSync(bundledBundle)) {
-      mcpPath = bundledBundle;
-      outputChannel.appendLine('[Dev Memory] Using bundled MCP bundle from extension path: ' + bundledBundle);
-      outputChannel.appendLine('[Dev Memory] Bundled MCP found — skipping workspace build/use.');
-
-      // To ensure Node resolves runtime deps from the embedded package's node_modules
-      // we copy the bundled artifact into the embedded package dist folder (if not
-      // already present) and spawn it from there. This makes the bundle's module
-      // filename live under packages/mcp-server so require() will search
-      // packages/mcp-server/node_modules when resolving dependencies like
-      // "@lancedb/lancedb".
-      const targetPkgDist = path.join(extensionPath, 'packages', 'mcp-server', 'dist');
-      const targetBundlePath = path.join(targetPkgDist, 'mcp-server.bundle.js');
-      try {
-        if (!fs.existsSync(targetPkgDist)) {
-          fs.mkdirSync(targetPkgDist, { recursive: true });
-        }
-        if (!fs.existsSync(targetBundlePath)) {
-          fs.copyFileSync(bundledBundle, targetBundlePath);
-          outputChannel.appendLine('[Dev Memory] Copied bundled MCP into embedded package dist: ' + targetBundlePath);
-        } else {
-          outputChannel.appendLine('[Dev Memory] Embedded package already has bundle at: ' + targetBundlePath);
-        }
-      } catch (err: any) {
-        outputChannel.appendLine('[Dev Memory] Failed to prepare embedded bundle: ' + err?.message);
-      }
-
-      outputChannel.appendLine('[Dev Memory] Spawning MCP server process at: ' + targetBundlePath);
-
-      // Track whether we've attempted to auto-install runtime deps already to avoid loops
-      let attemptedInstall = false;
-
-      const spawnEmbeddedBundle = (): ChildProcessWithoutNullStreams => {
-        // Preflight: ensure platform-specific native packages required by @lancedb
-        // are present in the embedded node_modules. If not, run npm install
-        // to fetch the correct platform binaries before spawning.
-        try {
-          const embeddedNodeModules = path.join(extensionPath, 'packages', 'mcp-server', 'node_modules');
-          // helper to check for a scoped package
-          const hasScoped = (scope: string, name: string) => fs.existsSync(path.join(embeddedNodeModules, scope, name));
-          const candidates: Array<[string,string]> = [];
-          // Populate candidate package names based on current platform/arch
-          switch (process.platform) {
-            case 'darwin':
-              candidates.push(['@lancedb', 'lancedb-darwin-universal']);
-              candidates.push(['@lancedb', 'lancedb-darwin-x64']);
-              candidates.push(['@lancedb', 'lancedb-darwin-arm64']);
-              break;
-            case 'win32':
-              candidates.push(['@lancedb', 'lancedb-win32-x64-msvc']);
-              candidates.push(['@lancedb', 'lancedb-win32-ia32-msvc']);
-              candidates.push(['@lancedb', 'lancedb-win32-arm64-msvc']);
-              break;
-            case 'linux':
-              // include both musl/gnu candidates; installer will pick correct one
-              candidates.push(['@lancedb', 'lancedb-linux-x64-gnu']);
-              candidates.push(['@lancedb', 'lancedb-linux-x64-musl']);
-              candidates.push(['@lancedb', 'lancedb-linux-arm64-gnu']);
-              candidates.push(['@lancedb', 'lancedb-linux-arm64-musl']);
-              candidates.push(['@lancedb', 'lancedb-linux-arm-gnueabihf']);
-              candidates.push(['@lancedb', 'lancedb-linux-arm-musleabihf']);
-              break;
-            default:
-              break;
-          }
-
-          let found = false;
-          for (const [scope, name] of candidates) {
-            if (hasScoped(scope, name)) { found = true; break; }
-          }
-
-          if (!found) {
-            outputChannel.appendLine('[Dev Memory] Platform-specific native packages for @lancedb not found in embedded node_modules. Running `npm install --production` first...');
-            const install = spawnSync('npm', ['install', '--production', '--no-audit', '--no-fund'], {
-              cwd: path.join(extensionPath, 'packages', 'mcp-server'),
-              shell: true
-            });
-            if (install.stdout) outputChannel.appendLine(install.stdout.toString());
-            if (install.stderr) outputChannel.appendLine(install.stderr.toString());
-            if (install.status === 0) {
-              outputChannel.appendLine('[Dev Memory] npm install completed successfully (preflight).');
-            } else {
-              outputChannel.appendLine('[Dev Memory] npm install failed during preflight (status ' + install.status + '). Continuing to spawn the bundle to surface errors.');
-            }
-          }
-        } catch (err: any) {
-          outputChannel.appendLine('[Dev Memory] Preflight check failed: ' + (err?.message || String(err)));
-        }
-
-        const proc = spawn('node', [path.join('.', 'dist', 'mcp-server.bundle.js')], {
-          cwd: path.join(extensionPath, 'packages', 'mcp-server'),
-          stdio: ['pipe', 'pipe', 'pipe'],
-          shell: true
-        });
-
-        const logStream = createLogStream();
-        proc.stdout.on('data', (data) => {
-          const s = data.toString();
-          outputChannel.appendLine(`[MCP] ${s}`);
-          if (logStream) logStream.write(`[${new Date().toISOString()}] MCP: ${s}`);
-        });
-        proc.stderr.on('data', (data) => {
-          const s = data.toString();
-          outputChannel.appendLine(`[MCP-ERR] ${s}`);
-          if (logStream) logStream.write(`[${new Date().toISOString()}] MCP-ERR: ${s}`);
-        });
-
-        proc.on('error', (err) => {
-          outputChannel.appendLine('[Dev Memory] MCP process error: ' + err?.message);
-        });
-
-        proc.on('exit', (code) => {
-          // Ensure we always close the per-process log stream so file handles
-          // are not left open across reloads/restarts which can cause logs to
-          // appear stale in external viewers.
-          try { if (logStream) logStream.end(); } catch (e) {}
-
-          if (code !== 0 && !attemptedInstall) {
-            attemptedInstall = true;
-            outputChannel.appendLine('[Dev Memory] MCP exited with code ' + code + '. Attempting to run `npm install --production` in embedded mcp-server to fetch runtime deps...');
-            try {
-              // Run a focused production install to fetch native/platform packages
-              const install = spawnSync('npm', ['install', '--production', '--no-audit', '--no-fund'], {
-                cwd: path.join(extensionPath, 'packages', 'mcp-server'),
-                shell: true
-              });
-              if (install.stdout) outputChannel.appendLine(install.stdout.toString());
-              if (install.stderr) outputChannel.appendLine(install.stderr.toString());
-              if (install.status === 0) {
-                outputChannel.appendLine('[Dev Memory] npm install completed successfully; restarting MCP server.');
-                spawnEmbeddedBundle();
-              } else {
-                outputChannel.appendLine('[Dev Memory] npm install failed (status ' + install.status + '). See logs above.');
-              }
-            } catch (err: any) {
-              outputChannel.appendLine('[Dev Memory] Failed to run npm install: ' + err?.message);
-            }
-          }
-        });
-        return proc;
-      };
-
-      return spawnEmbeddedBundle();
-    }
-    if (fs.existsSync(bundled)) {
-      mcpPath = bundled;
-      outputChannel.appendLine('[Dev Memory] Using bundled MCP server from extension path: ' + bundled);
-      // Prefer bundled MCP and do not attempt to build or use workspace copy when bundled is present
-      outputChannel.appendLine('[Dev Memory] Bundled MCP found — skipping workspace build/use.');
-      outputChannel.appendLine('[Dev Memory] Spawning MCP server process at: ' + mcpPath);
-      const procBundled = spawn('node', [mcpPath], {
-        cwd: path.join(extensionPath, 'packages', 'mcp-server'),
-        stdio: ['pipe', 'pipe', 'pipe'],
-        shell: true
-      });
-
-      const bundledLog = createLogStream();
-      procBundled.stdout.on('data', (data) => {
-        const s = data.toString();
-        outputChannel.appendLine(`[MCP] ${s}`);
-        if (bundledLog) bundledLog.write(`[${new Date().toISOString()}] MCP: ${s}`);
-      });
-      procBundled.stderr.on('data', (data) => {
-        const s = data.toString();
-        outputChannel.appendLine(`[MCP-ERR] ${s}`);
-        if (bundledLog) bundledLog.write(`[${new Date().toISOString()}] MCP-ERR: ${s}`);
-      });
-
-      procBundled.on('exit', () => {
-        try { if (bundledLog) bundledLog.end(); } catch (e) {}
-      });
-
-      return procBundled;
+    const candidate = path.join(extensionPath, 'dist', 'mcp-server.bundle.js');
+    if (fs.existsSync(candidate)) {
+      mcpPath = candidate;
+      outputChannel.appendLine('[Dev Memory] Using bundled MCP bundle from extension path: ' + candidate);
     }
   }
-  // If no bundled server was found, try workspace copy but do NOT trigger builds automatically
-  if (workspaceRoot) {
-    const workspaceMcp = path.join(workspaceRoot, 'packages', 'mcp-server', 'dist', 'index.js');
-    if (fs.existsSync(workspaceMcp)) {
-      outputChannel.appendLine('[Dev Memory] Using workspace MCP server at: ' + workspaceMcp);
-      outputChannel.appendLine('[Dev Memory] Spawning MCP server process at: ' + workspaceMcp);
-      const proc = spawn('node', [workspaceMcp], {
-        cwd: workspaceRoot,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        shell: true
-      });
-
-      const wsLog = createLogStream();
-      proc.stdout.on('data', (data) => {
-        const s = data.toString();
-        outputChannel.appendLine(`[MCP] ${s}`);
-        if (wsLog) wsLog.write(`[${new Date().toISOString()}] MCP: ${s}`);
-      });
-      proc.stderr.on('data', (data) => {
-        const s = data.toString();
-        outputChannel.appendLine(`[MCP-ERR] ${s}`);
-        if (wsLog) wsLog.write(`[${new Date().toISOString()}] MCP-ERR: ${s}`);
-      });
-
-      proc.on('exit', () => {
-        try { if (wsLog) wsLog.end(); } catch (e) {}
-      });
-
-      return proc;
+  if (!mcpPath && workspaceRoot) {
+    const candidate = path.join(workspaceRoot, 'packages', 'vscode-extension', 'dist', 'mcp-server.bundle.js');
+    if (fs.existsSync(candidate)) {
+      mcpPath = candidate;
+      outputChannel.appendLine('[Dev Memory] Using workspace MCP bundle: ' + candidate);
     }
   }
+  if (!mcpPath) {
+    outputChannel.appendLine('[Dev Memory] No MCP server bundle available to launch.');
+    return undefined;
+  }
 
-  outputChannel.appendLine('[Dev Memory] No MCP server binary available to launch (neither bundled nor workspace).');
-  return undefined;
+  outputChannel.appendLine('[Dev Memory] Spawning MCP server process at: ' + mcpPath);
+  const proc = spawn('node', [mcpPath], {
+    cwd: path.dirname(mcpPath),
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: true
+  });
+
+  const logStream = createLogStream();
+  proc.stdout.on('data', (data) => {
+    const s = data.toString();
+    outputChannel.appendLine(`[MCP] ${s}`);
+    if (logStream) logStream.write(`[${new Date().toISOString()}] MCP: ${s}`);
+  });
+  proc.stderr.on('data', (data) => {
+    const s = data.toString();
+    outputChannel.appendLine(`[MCP-ERR] ${s}`);
+    if (logStream) logStream.write(`[${new Date().toISOString()}] MCP-ERR: ${s}`);
+  });
+
+  proc.on('error', (err) => {
+    outputChannel.appendLine('[Dev Memory] MCP process error: ' + err?.message);
+  });
+  proc.on('exit', (code) => {
+    try { if (logStream) logStream.end(); } catch (e) {}
+  });
+
+  return proc;
 }
 
 export async function sendMCPRequest(proc: ChildProcessWithoutNullStreams | undefined, req: any): Promise<any> {
   if (!proc) return { error: 'MCP server not running' };
-  return new Promise((resolve) => {
-    let result = '';
-    const onData = (data: Buffer) => {
-      result += data.toString();
-      if (result.includes('\n')) {
-        proc.stdout.off('data', onData);
-        try {
-          resolve(JSON.parse(result));
-        } catch {
-          resolve({ raw: result });
-        }
-      }
-    };
-    proc.stdout.on('data', onData);
-    proc.stdin.write(JSON.stringify(req) + '\n');
-  });
+  if (!mcpClientInstance || mcpClientInstance.proc !== proc) {
+    // create a new client wrapper whenever the process changes
+    mcpClientInstance = new McpClient(proc, globalOutputChannel!);
+  }
+  // Support both the legacy (req.tool / req.params) and the explicit
+  // JSON-RPC method form (req.method / req.params). If a caller supplies
+  // req.method we treat it as a top-level JSON-RPC call (e.g. "tools/list").
+  if (req && typeof req.method === 'string') {
+    return mcpClientInstance.sendRpc(req.method, req.params);
+  }
+  return mcpClientInstance.send(req.tool, req.params);
 }

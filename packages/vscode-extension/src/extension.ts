@@ -130,7 +130,7 @@ export function activate(context: vscode.ExtensionContext) {
       </div>
 
       <div class="warning">
-        Note: Indexing writes a local LanceDB under <code>workspaceRoot/storage/lancedb</code>.
+        Note: Indexing writes a local vector index under <code>workspaceRoot/.dev-memory/index.json</code>.
         After you reload the window, you must re-run Index Project to re-create the index before search will return results.
       </div>
 
@@ -199,7 +199,7 @@ export function activate(context: vscode.ExtensionContext) {
           panel.webview.postMessage({ type: 'error', error: err });
           return;
         }
-        const res = await sendMCPRequest(mcpProcess, { tool: 'ingest_project', params: { rootPath, force: Boolean(message.force) } });
+        const res = await sendMCPRequest(mcpProcess, { method: 'tools/call', params: { name: 'ingest_project', arguments: { rootPath, force: Boolean(message.force) } } });
         outputChannel.appendLine('[Dev Memory] Indexing complete (webview).');
         panel.webview.postMessage({ type: 'result', data: res });
       } else if (message.command === 'search') {
@@ -212,9 +212,22 @@ export function activate(context: vscode.ExtensionContext) {
           panel.webview.postMessage({ type: 'error', error: err });
           return;
         }
-        const res = await sendMCPRequest(mcpProcess, { tool: 'semantic_search', params: { query: message.query, k: 10, rootPath } });
+        const res = await sendMCPRequest(mcpProcess, { method: 'tools/call', params: { name: 'semantic_search', arguments: { query: message.query, k: 10, rootPath } } });
         outputChannel.appendLine('[Dev Memory] Search complete (webview).');
-        panel.webview.postMessage({ type: 'result', data: res });
+        // semantic_search returns its payload inside result.content as a text block
+        let parsed = res;
+        try {
+          if (res && Array.isArray(res.content)) {
+            const textBlock = res.content.find((c: any) => c.type === 'text');
+            if (textBlock && typeof textBlock.text === 'string') {
+              parsed = JSON.parse(textBlock.text);
+            }
+          }
+        } catch (e) {
+          // fall back to raw result
+          parsed = res;
+        }
+        panel.webview.postMessage({ type: 'result', data: parsed });
       }
     } catch (err) {
       const em = err && (err as any).message ? (err as any).message : String(err);
@@ -240,8 +253,8 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
       const result = await sendMCPRequest(mcpProcess, {
-        tool: 'ingest_project',
-        params: { rootPath }
+        method: 'tools/call',
+        params: { name: 'ingest_project', arguments: { rootPath } }
       });
       outputChannel.appendLine('[Dev Memory] Indexing complete.');
       outputChannel.appendLine('[Dev Memory] Result:');
@@ -259,8 +272,8 @@ export function activate(context: vscode.ExtensionContext) {
       }
         const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         const result = await sendMCPRequest(mcpProcess, {
-          tool: 'semantic_search',
-          params: { query, rootPath }
+          method: 'tools/call',
+          params: { name: 'semantic_search', arguments: { query, rootPath } }
         });
       outputChannel.appendLine('[Dev Memory] Search results:');
       outputChannel.appendLine(JSON.stringify(result, null, 2));

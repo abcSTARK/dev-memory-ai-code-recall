@@ -1,7 +1,9 @@
 .vscode
 node_modules
-!packages/**/node_modules/**
-.git/
+# we bundle the server; do not include any workspace packages or their dependencies
+packages/**
+.vsce-dist/**
+#.git/
 ../../.git/
 src/**/*.test.ts
 test/

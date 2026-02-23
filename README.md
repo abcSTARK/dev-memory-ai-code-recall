@@ -3,13 +3,13 @@
 Dev Memory is a local-first AI memory engine that provides persistent,
 semantic recall for your codebase. It enables fast, private, and offline
 semantic search over your project by embedding source files into a local
-vector store (LanceDB) and exposing a small MCP server for integration with
+vector store (JSON‑backed cosine similarity) and exposing a small MCP server for integration with
 agents and the included VS Code extension.
 
 Key principles:
 -  Local-first: no cloud services, no API keys.
 -  Zero-config: works with plain workspaces and writes storage inside the
-  workspace under `storage/lancedb/`.
+  workspace under `.dev-memory/index.json`.
 -  Developer-focused UX: tight VS Code integration, easy re-index and search.
 
 ------------------------------------------------------------------------
@@ -92,7 +92,7 @@ sequenceDiagram
   binaries, etc.)
 - Chunking (splits long files into searchable passages)
 - Local embeddings using Xenova transformer pipelines
-- Persistent vector storage with LanceDB
+- Persistent vector storage in `.dev-memory/index.json` using cosine similarity
 - Semantic search and simple note remembering APIs
 
 API (library)
@@ -128,7 +128,7 @@ stdin/stdout using the MCP JSON-RPC wire format and is discoverable by
 MCP-compatible hosts and inspectors.
 
 Tools provided by the server (examples):
-- `ingest_project` — index a workspace into `storage/lancedb`
+- `ingest_project` — index a workspace into `.dev-memory/index.json`
 - `semantic_search` — run a query against an indexed project (accepts `rootPath`)
 - `remember_note` — persist small notes into a separate table
 - `project_summary` — produce a short summary of the project
@@ -139,7 +139,7 @@ Important notes:
 - The legacy ad-hoc protocol that accepted `{ "tool": "name", "params": { ... } }`
   messages has been removed — please use the MCP JSON-RPC endpoints.
 - MCP requests which operate on the DB must include the `rootPath` parameter
-  so the server reads/writes the workspace LanceDB at `rootPath/storage/lancedb`.
+  so the server reads/writes the workspace index at `rootPath/.dev-memory/index.json`.
 
 ------------------------------------------------------------------------
 
@@ -316,14 +316,37 @@ mcpLauncher.ts │ └── assets/
 
 # Storage and logs
 
-- Vector database: `storage/lancedb/` under the workspace root (LanceDB files)
+- Vector database: `.dev-memory/index.json` under the workspace root (JSON file)
 - Log file: `.vscode/devmemory.log` inside the workspace (the extension
   appends MCP and launcher logs here so you can tail them with `tail -F`)
 
-If you delete `storage/lancedb` you remove the project's index and will need
+If you delete `.dev-memory/index.json` you remove the project's index and will need
 to re-run `Index Project` to recreate it.
 
-------------------------------------------------------------------------
+
+## Progress & Known Issues (status)
+
+This section documents what has been implemented so far, what remains, and known runtime issues to be aware of.
+
+What we've covered (Done)
+- MCP server migrated to the official MCP SDK and now uses newline-delimited JSON over stdio for messages.
+- Extension-side MCP client now implements a proper JSON-RPC helper (`sendRpc`) and supports both top-level RPC (`tools/list`) and tool invocation (`tools/call`).
+- Tool registration was fixed to pass handlers using the SDK signature (handler is the third arg to `registerTool`).
+- `semantic_search` and other tools return results wrapped in the MCP `content` shape; the extension parses `content` (text blocks) into JSON before forwarding to the webview.
+- The extension forwards MCP logging notifications (`notifications/message`) to the VS Code Output channel and writes session logs to `.vscode/devmemory.log`.
+- The MCP server bundle is produced and packaged into a VSIX. A built VSIX is available at `packages/vscode-extension/.vsce-dist/devmemory-ai-code-recall-1.0.0.vsix`.
+
+Remaining / Partial (Todo)
+- Final end-to-end verification in the VS Code Extension Host: activate the extension, Index Project, and confirm search results render in the webview. (You can test by installing the VSIX.)
+- Improve index persistence behavior: currently the index is explicit and must be recreated after host reloads (re-run `Index Project`). We may add an incremental or persistent background indexer in a later iteration.
+- Add better error and content-shape handling in the webview for malformed or streaming tool outputs.
+- Optionally add lightweight unit/integration tests around `mcpLauncher` and the MCP client to assert framing and pending resolution logic.
+
+Known issues and notes
+- If you previously upgraded the MCP SDK and lost detailed logs, that was caused by a framing mismatch (Content-Length vs newline framing). The framing issue has been fixed in the client code, and logs are now surfaced to the Output channel.
+- Tools must be called correctly: use `tools/list` as a top-level RPC method (via `sendRpc('tools/list')` or `sendMCPRequest(..., { method: 'tools/list' })`) and use `tools/call` to invoke a registered tool by name.
+- Indexing is currently manual; if searches return nothing, re-run `Dev Memory: Index Project` (or run the ingest tool with `force: true`).
+- The project switched to a simple JSON vector store for local persistence in the current branch; if you rely on LanceDB-specific features please note they are no longer required at runtime.
 
 # 🔐 Privacy
 

@@ -8,7 +8,7 @@ export function register(server: any, ctx?: { z?: any }) {
       description: 'Remember a short note (stores embedding into notes table)',
       inputSchema: inputSchema,
       outputSchema: undefined,
-      handler: async (params: any) => {
+  }, async (params: any) => {
       try {
         const root = params.rootPath || process.cwd();
         const res = await rememberNote(root, params.note, params.tags, params.key);
@@ -17,6 +17,6 @@ export function register(server: any, ctx?: { z?: any }) {
         return { success: false, error: String(err) };
       }
     }
-  });
+  );
 }
 

@@ -8,7 +8,7 @@ export function register(server: any, ctx?: { z?: any }) {
       description: 'Produces a short summary of the project using the semantic index',
       inputSchema: inputSchema,
       outputSchema: undefined,
-      handler: async (params: any) => {
+  }, async (params: any) => {
       try {
         const root = params.rootPath || process.cwd();
         const k = params.k || 5;
@@ -18,6 +18,6 @@ export function register(server: any, ctx?: { z?: any }) {
         return { error: String(err) };
       }
     }
-  });
+  );
 }
 

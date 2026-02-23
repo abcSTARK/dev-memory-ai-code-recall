@@ -1,6 +1,7 @@
 import { glob } from "glob";
 import { chunkFile } from "./chunk";
-import { storeChunks } from "./vector-store";
+import { embedText } from "./embed";
+import { initializeStore, addEmbedding } from "./vector-store";
 
 export async function ingestProject(rootPath: string): Promise<void> {
   const files: string[] = await glob.glob(
@@ -72,16 +73,26 @@ export async function ingestProject(rootPath: string): Promise<void> {
     ".sample"
   ];
   const filteredFiles: string[] = files.filter((f: string) => !forbidden.some((seg: string) => f.includes(seg)));
+  // prepare store once
+  initializeStore(rootPath);
   console.error(`[ingest] Found ${filteredFiles.length} files (filtered from ${files.length}).`);
   for (const [i, filePath] of filteredFiles.entries()) {
-  console.error(`[ingest] Processing file ${i + 1}/${filteredFiles.length}: ${filePath}`);
+    console.error(`[ingest] Processing file ${i + 1}/${filteredFiles.length}: ${filePath}`);
     try {
       const chunks = await chunkFile(filePath);
-  console.error(`[ingest] Chunked into ${chunks.length} chunks.`);
-      await storeChunks(rootPath, filePath, chunks);
-  console.error(`[ingest] Stored chunks for ${filePath}`);
+      console.error(`[ingest] Chunked into ${chunks.length} chunks.`);
+      for (const [j, chunk] of chunks.entries()) {
+        const embedding = await embedText(chunk);
+        addEmbedding({
+          id: `${filePath}#${j}`,
+          text: chunk,
+          embedding: Array.from(embedding),
+          metadata: { filePath }
+        });
+      }
+      console.error(`[ingest] Stored chunks for ${filePath}`);
     } catch (err) {
-  console.error(`[ingest] Error processing ${filePath}: ${err}`);
+      console.error(`[ingest] Error processing ${filePath}: ${err}`);
     }
   }
   console.error(`[ingest] All files processed.`);

@@ -44,5 +44,12 @@
         "type": "git",
         "url": "https://github.com/abcSTARK/dev-memory-ai-code-recall"
     },
-    "license": "MIT"
+    "license": "MIT",
+    "files": [
+        "dist",
+        "assets",
+        "package.json",
+        "README.md",
+        "LICENSE.txt"
+    ]
 }

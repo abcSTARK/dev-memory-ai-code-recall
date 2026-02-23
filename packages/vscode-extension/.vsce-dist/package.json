@@ -1,0 +1,43 @@
+{
+  "name": "devmemory-ai-code-recall",
+  "displayName": "Dev Memory — AI Code Recall",
+  "description": "Local-first AI code recall extension. Index and search your project memory with zero cloud.",
+  "version": "1.0.0",
+  "publisher": "devmemory",
+  "engines": {
+    "vscode": ">=1.85.0"
+  },
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:devmemory.indexProject",
+    "onCommand:devmemory.searchMemory"
+  ],
+  "main": "./dist/extension.js",
+  "categories": [
+    "Other"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "devmemory.indexProject",
+        "title": "Dev Memory: Index Project"
+      },
+      {
+        "command": "devmemory.searchMemory",
+        "title": "Dev Memory: Search Project Memory"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abcSTARK/dev-memory-ai-code-recall"
+  },
+  "license": "MIT",
+  "files": [
+    "dist",
+    "assets",
+    "package.json",
+    "README.md",
+    "LICENSE.txt"
+  ]
+}
