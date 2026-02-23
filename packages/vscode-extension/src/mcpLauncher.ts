@@ -46,7 +46,6 @@ class McpClient {
     this.outputChannel = outputChannel;
 
     proc.stdout.on('data', (chunk) => this.onStdout(chunk));
-    proc.stderr.on('data', (chunk) => this.onStderr(chunk));
   }
 
   onStdout(chunk: Buffer) {
@@ -57,11 +56,6 @@ class McpClient {
     // readable form and resolve pending responses.
     this.buffer += text;
     this.processBuffer();
-  }
-
-  onStderr(chunk: Buffer) {
-    const text = chunk.toString();
-    this.outputChannel.appendLine(`[MCP-ERR] ${text}`);
   }
 
   processBuffer() {

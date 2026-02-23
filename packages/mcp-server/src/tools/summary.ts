@@ -13,11 +13,26 @@ export function register(server: any, ctx?: { z?: any }) {
         const root = params.rootPath || process.cwd();
         const k = params.k || 5;
         const res = await projectSummary(root, k as number);
-        return res;
+        return {
+          ...res,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(res, null, 2)
+            }
+          ]
+        };
       } catch (err: any) {
-        return { error: String(err) };
+        return {
+          error: String(err),
+          content: [
+            {
+              type: "text",
+              text: `project_summary failed: ${String(err)}`
+            }
+          ]
+        };
       }
     }
   );
 }
-

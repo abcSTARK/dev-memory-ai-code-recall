@@ -1,4 +1,5 @@
 import { glob } from "glob";
+import path from "path";
 import { chunkFile } from "./chunk";
 import { embedText } from "./embed";
 import { initializeStore, addEmbedding } from "./vector-store";
@@ -11,22 +12,36 @@ export async function ingestProject(rootPath: string): Promise<void> {
       absolute: true
     }
   );
-  // Post-filter forbidden directories/files
-  const forbidden: string[] = [
+  const forbiddenPathSegments: string[] = [
     "/node_modules/",
     "/dist/",
     "/.git/",
     "/.venv/",
     "/build/",
     "/target/",
-    "/__pycache__",
+    "/__pycache__/",
     "/.idea/",
     "/.vscode/",
+    "/.vsce-dist/",
+    "/.dev-memory/",
+    "/packages/mcp-server/packages/",
+    "/packages/vscode-extension/packages/"
+  ];
+
+  const forbiddenFileNames: Set<string> = new Set([
+    ".DS_Store",
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "bun.lockb",
+    "tsconfig.tsbuildinfo"
+  ]);
+
+  const forbiddenSuffixes: string[] = [
     ".egg-info",
     ".class",
     ".jar",
     ".pyc",
-    ".DS_Store",
     ".lock",
     ".log",
     ".tmp",
@@ -72,7 +87,15 @@ export async function ingestProject(rootPath: string): Promise<void> {
     ".env",
     ".sample"
   ];
-  const filteredFiles: string[] = files.filter((f: string) => !forbidden.some((seg: string) => f.includes(seg)));
+
+  const filteredFiles: string[] = files.filter((filePath: string) => {
+    const normalized = filePath.replace(/\\/g, "/");
+    const baseName = path.basename(normalized);
+    if (forbiddenFileNames.has(baseName)) return false;
+    if (forbiddenPathSegments.some((seg) => normalized.includes(seg))) return false;
+    if (forbiddenSuffixes.some((suffix) => normalized.endsWith(suffix))) return false;
+    return true;
+  });
   // prepare store once
   initializeStore(rootPath);
   console.error(`[ingest] Found ${filteredFiles.length} files (filtered from ${files.length}).`);

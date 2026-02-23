@@ -1,35 +1,44 @@
 # Dev Memory — AI Code Recall VS Code Extension
 
-A local-first AI memory engine for your codebase. Index and search your project memory with zero cloud, zero API keys.
+Local-first semantic memory for your workspace.
 
 ## Features
- Index Project: Ingests your workspace files and builds a semantic memory
- Search Project Memory: Semantic search over indexed chunks
- All results shown in OutputChannel
- No cloud, no OpenAI, no Docker
+
+- Starts bundled MCP server automatically
+- Registers workspace MCP config (`.vscode/mcp.json`)
+- Commands:
+  - `Dev Memory: Index Project`
+  - `Dev Memory: Search Project Memory`
+  - `Dev Memory: Open Welcome Page`
+- Welcome webview for Index/Search
+- Embedding provider visibility in UI (`xenova-wasm` or fallback)
+- Output logs in `Dev Memory` output channel and `.vscode/devmemory.log`
+
+## Embedding runtime
+
+The extension ships Xenova/ONNX WASM runtime assets under:
+
+- `dist/runtime/node_modules/...`
+
+This is how the extension runs embeddings from a single VSIX without requiring user-side native builds.
 
 ## Usage
- Run `Dev Memory: Index Project` from the command palette
- Run `Dev Memory: Search Project Memory` and enter your query
+
+1. Run `Dev Memory: Open Welcome Page`.
+2. Click **Index Project**.
+3. Run a query from the webview or use `Dev Memory: Search Project Memory`.
+
+## Notes
+
+- Indexing is explicit/manual today.
+- Re-index after a VS Code reload before searching.
 
 ## Privacy
- 100% local
- No telemetry
- No API keys
- No cloud calls
 
- ## Progress & Known Issues (extension)
-
-- Implemented: the extension launches the bundled MCP server, receives MCP logging notifications, and forwards detailed logs to the VS Code Output channel and a workspace log at `.vscode/devmemory.log`.
-- Implemented: the extension's MCP client now supports top-level RPC (`tools/list`) and tool invocation (`tools/call`) and parses `semantic_search` results before sending them to the webview.
-
- Known / Remaining:
-- You must re-run `Dev Memory: Index Project` after reloading the window to recreate the index; incremental persistence is a planned improvement.
-- Confirm end-to-end webview rendering by installing the VSIX and exercising Index + Search (the VSIX is produced at `packages/vscode-extension/.vsce-dist/devmemory-ai-code-recall-1.0.0.vsix`).
-- Error handling for malformed tool outputs or streaming responses can be improved; for now the extension attempts to parse text blocks in `result.content` and falls back to raw content on parse failure.
-
- If you'd like, I can add a small smoke test script or extension-host task to automate the Index → Search manual check.
+- 100% local
+- No API keys
+- No cloud calls required
 
 ## License
-MIT
 
+MIT

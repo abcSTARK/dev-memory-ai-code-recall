@@ -19,7 +19,15 @@ export function register(server: any, ctx?: { z?: any }) {
       }
       const status = getEmbeddingStatus();
       console.error("[MCP] embedding_status", status);
-      return status;
+      return {
+        ...status,
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(status, null, 2)
+          }
+        ]
+      };
     }
   );
 }

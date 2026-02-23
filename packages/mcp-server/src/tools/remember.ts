@@ -12,11 +12,27 @@ export function register(server: any, ctx?: { z?: any }) {
       try {
         const root = params.rootPath || process.cwd();
         const res = await rememberNote(root, params.note, params.tags, params.key);
-        return res;
+        return {
+          ...res,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(res, null, 2)
+            }
+          ]
+        };
       } catch (err: any) {
-        return { success: false, error: String(err) };
+        return {
+          success: false,
+          error: String(err),
+          content: [
+            {
+              type: "text",
+              text: `remember_note failed: ${String(err)}`
+            }
+          ]
+        };
       }
     }
   );
 }
-
