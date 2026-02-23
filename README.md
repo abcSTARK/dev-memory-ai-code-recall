@@ -6,11 +6,18 @@ Dev Memory is a local-first memory engine for AI coding workflows. It indexes yo
 
 - Local embeddings: `@xenova/transformers` (WASM path) with dynamic loading.
 - Local vector store: JSON file with cosine search at `.dev-memory/index.json`.
-- MCP tools:
+- MCP tools (preferred names):
+  - `index_codebase`
+  - `search_codebase`
+  - `summarize_codebase`
+  - `save_project_note`
+  - `get_embedding_status`
+  - `answer_from_codebase`
+- MCP tools (legacy aliases still supported):
   - `ingest_project`
   - `semantic_search`
-  - `remember_note`
   - `project_summary`
+  - `remember_note`
   - `embedding_status`
 - VS Code extension:
   - Starts bundled MCP server
@@ -58,12 +65,33 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
   | node packages/mcp-server/dist/index.js
 ```
 
-Example: semantic search
+Example: codebase search
 
 ```bash
-echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"semantic_search","arguments":{"query":"indexing flow","k":5,"rootPath":"/path/to/workspace"}}}' \
+echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"search_codebase","arguments":{"query":"indexing flow","top_k":5,"workspace_root":"/path/to/workspace"}}}' \
   | node packages/mcp-server/dist/index.js
 ```
+
+## Copilot + MCP usage
+
+When using GitHub Copilot Chat with MCP enabled, select `#devmemory-local` and ask normal codebase questions.
+
+Verified prompt style:
+
+- `Search this codebase for where welcome page command is registered.`
+
+Recommended prompts:
+
+- `Search this codebase for how indexing works.`
+- `Summarize this repository architecture.`
+- `Answer from codebase: where is semantic_search implemented?`
+
+Autonomous tool behavior is tuned so chat can choose tools by intent:
+
+- Use `search_codebase` for most “where/how is X implemented?” questions
+- Use `summarize_codebase` for high-level “what does this repo do?” questions
+- Use `index_codebase` after major file changes or first-time setup
+- Use `answer_from_codebase` for one-shot Q&A with cited files
 
 ## VS Code extension
 

@@ -5,4 +5,5 @@ export function registerTools(server: any, ctx?: { z?: any }) {
 	require('./remember').register(server, ctx);
 	require('./summary').register(server, ctx);
 	require('./embedding-status').register(server, ctx);
+	require('./answer').register(server, ctx);
 }
