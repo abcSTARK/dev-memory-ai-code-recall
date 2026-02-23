@@ -79,6 +79,7 @@ async function prepare() {
   // to include the entire `packages/` tree or any node_modules.
   await fse.copy(path.join(root, 'dist'), path.join(out, 'dist'));
   await fse.copy(path.join(root, 'assets'), path.join(out, 'assets')).catch(() => {});
+  await fse.copy(path.join(root, 'media'), path.join(out, 'media')).catch(() => {});
   await fse.copy(path.join(root, 'README.md'), path.join(out, 'README.md')).catch(() => {});
   await fse.copy(path.join(root, 'LICENSE.txt'), path.join(out, 'LICENSE.txt')).catch(() => {});
 

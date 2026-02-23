@@ -78,8 +78,6 @@ Recommended screenshot names:
 
 ### Preview Screenshots
 
-Current images are placeholders. Replace with real product screenshots.
-
 ![Welcome Page](assets/screenshots/01-welcome-page.png)
 ![Index In Progress](assets/screenshots/02-index-in-progress.png)
 ![Search Results](assets/screenshots/03-search-results.png)

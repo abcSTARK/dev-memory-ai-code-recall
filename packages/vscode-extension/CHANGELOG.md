@@ -10,6 +10,15 @@
 - Switched packaging to include runtime dependencies under `dist/runtime/node_modules` for single-VSIX Xenova WASM usage.
 - Added runtime stubs used by packaging flow for text-only embedding path (`sharp`, `onnxruntime-node` shim).
 
+## 1.0.1
+
+- Updated Marketplace README copy to remove placeholder-style text.
+- Switched README image links to stable GitHub raw URLs for reliable Marketplace rendering.
+
+## 1.0.2
+
+- Switched Marketplace README media to bundled `media/` assets for reliable in-product and Marketplace rendering.
+
 ## 1.0.0
 
 - Initial release:

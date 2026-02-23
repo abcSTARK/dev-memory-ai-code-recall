@@ -1,5 +1,7 @@
 # Dev Memory — AI Code Recall
 
+![Dev Memory screenshot](media/screenshot-1.png)
+
 Local-first semantic memory for your codebase and coding agents.
 
 Dev Memory helps developers and AI agents recall implementation details across a repository without sending source code to external services.
@@ -64,34 +66,21 @@ Example prompts:
 - JSON-based local vector index (`.dev-memory/index.json`)
 
 ## Branding and Screenshots
-
-Logo:
-
-- `assets/logo/dev-memory-logo.svg`
-- `assets/logo/dev-memory-brain-techy.svg`
-- `assets/logo/dev-memory-brain-techy-128.png`
-
-![Dev Memory Logo](assets/logo/dev-memory-brain-techy-128.png)
-
-Screenshots folder:
-
-- `assets/screenshots/`
-
-Suggested marketplace screenshots:
-
-- `welcome-page.png`
-- `indexing.png`
-- `search-results.png`
-- `copilot-mcp.png`
+![Dev Memory Logo](media/logo.png)
 
 ## Screenshots
 
-Current images are placeholders. Replace with real extension captures before marketplace submission.
+Welcome page
+![Welcome Page](media/screenshot-1.png)
 
-![Welcome Page](assets/screenshots/welcome-page.png)
-![Indexing](assets/screenshots/indexing.png)
-![Search Results](assets/screenshots/search-results.png)
-![Copilot MCP](assets/screenshots/copilot-mcp.png)
+Indexing workflow
+![Indexing](media/screenshot-2.png)
+
+Semantic search results
+![Search Results](media/screenshot-3.png)
+
+Copilot + MCP usage
+![Copilot MCP](media/screenshot-4.png)
 
 ## Packaging Model
 
