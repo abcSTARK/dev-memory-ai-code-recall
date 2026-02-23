@@ -19,6 +19,10 @@
 
 - Switched Marketplace README media to bundled `media/` assets for reliable in-product and Marketplace rendering.
 
+## 1.0.3
+
+- Version bump for Marketplace republish after `1.0.2` release.
+
 ## 1.0.0
 
 - Initial release:
