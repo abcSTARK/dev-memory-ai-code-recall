@@ -52,6 +52,39 @@ It indexes your workspace into a local semantic store and serves recall through 
 - Local persistence: JSON index file (workspace-local)
 - Build/packaging: TypeScript + esbuild + VSCE
 
+## Branding and Screenshots
+
+Logo files:
+
+- `assets/branding/dev-memory-logo.svg`
+- `assets/branding/dev-memory-brain-techy.svg`
+- `assets/branding/dev-memory-brain-techy-128.png`
+- `packages/vscode-extension/assets/logo/dev-memory-logo.svg`
+
+Screenshot folders:
+
+- `assets/screenshots/`
+- `packages/vscode-extension/assets/screenshots/`
+
+Recommended screenshot names:
+
+- `01-welcome-page.png`
+- `02-index-in-progress.png`
+- `03-search-results.png`
+- `04-embedding-status.png`
+- `05-copilot-mcp-example.png`
+
+![Dev Memory Logo](assets/branding/dev-memory-brain-techy.svg)
+
+### Preview Screenshots
+
+Current images are placeholders. Replace with real product screenshots.
+
+![Welcome Page](assets/screenshots/01-welcome-page.png)
+![Index In Progress](assets/screenshots/02-index-in-progress.png)
+![Search Results](assets/screenshots/03-search-results.png)
+![Copilot MCP](assets/screenshots/05-copilot-mcp-example.png)
+
 ## Monorepo Layout
 
 ```text

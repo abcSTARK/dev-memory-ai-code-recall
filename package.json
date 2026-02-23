@@ -1,6 +1,7 @@
 {
     "name": "dev-memory-ai-code-recall",
     "private": true,
+    "author": "abcSTARK",
     "workspaces": [
         "packages/*"
     ],

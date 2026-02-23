@@ -14,7 +14,7 @@ type EmbeddingStatus = {
   lastError?: string | null;
 };
 
-function createWelcomeHtml(): string {
+function createWelcomeHtml(logoSrc: string): string {
   return `
     <!doctype html>
     <html lang="en">
@@ -90,7 +90,7 @@ function createWelcomeHtml(): string {
     </head>
     <body>
       <header>
-        <img src="https://raw.githubusercontent.com/abcSTARK/dev-memory-ai-code-recall/main/packages/vscode-extension/assets/icon.png" alt="logo" width="36" height="36" />
+        <img src="${logoSrc}" alt="logo" width="36" height="36" />
         <div>
           <h1>Dev Memory — AI Code Recall</h1>
           <div class="muted">Local semantic search for your repo. No cloud required.</div>
@@ -280,7 +280,10 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.ViewColumn.One,
       { enableScripts: true }
     );
-    welcomePanel.webview.html = createWelcomeHtml();
+    const logoUri = welcomePanel.webview
+      .asWebviewUri(vscode.Uri.joinPath(context.extensionUri, "assets", "logo", "dev-memory-brain-techy.svg"))
+      .toString();
+    welcomePanel.webview.html = createWelcomeHtml(logoUri);
 
     const initialRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
     welcomePanel.webview.postMessage({ type: "init", rootPath: initialRoot });

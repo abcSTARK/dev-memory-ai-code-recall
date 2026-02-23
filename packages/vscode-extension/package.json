@@ -2,7 +2,9 @@
     "name": "devmemory-ai-code-recall",
     "displayName": "Dev Memory — AI Code Recall",
     "description": "Local-first AI code recall extension. Index and search your project memory with zero cloud.",
+    "icon": "assets/logo/dev-memory-brain-techy-128.png",
     "version": "1.0.0",
+    "author": "abcSTARK",
     "publisher": "devmemory",
     "engines": {
         "vscode": ">=1.85.0"

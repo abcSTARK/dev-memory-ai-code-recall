@@ -1,48 +1,40 @@
-# Dev Memory — AI Code Recall VS Code Extension
+# Dev Memory — AI Code Recall
 
-Local-first semantic memory for your workspace.
+Local-first semantic memory for your codebase and coding agents.
 
-## Features
+Dev Memory helps developers and AI agents recall implementation details across a repository without sending source code to external services.
 
-- Starts bundled MCP server automatically
-- Registers workspace MCP config (`.vscode/mcp.json`)
-- Commands:
-  - `Dev Memory: Index Project`
-  - `Dev Memory: Search Project Memory`
-  - `Dev Memory: Open Welcome Page`
-- Welcome webview for Index/Search
-- Embedding provider visibility in UI (`xenova-wasm` or fallback)
-- Output logs in `Dev Memory` output channel and `.vscode/devmemory.log`
+## What It Offers
 
-## Embedding runtime
+- Local semantic indexing of your workspace
+- Natural-language code search across files and chunks
+- MCP server integration for Copilot and other MCP-compatible agents
+- Built-in VS Code welcome UI for indexing and search
+- Embedding runtime visibility in the UI (`xenova-wasm` vs fallback)
+- Single-VSIX packaging with bundled WASM runtime dependencies
 
-The extension ships Xenova/ONNX WASM runtime assets under:
+## Why It Is Helpful
 
-- `dist/runtime/node_modules/...`
+- Faster code navigation for large repositories
+- Better AI answers grounded in your actual codebase
+- Lower context-switching cost when onboarding or switching modules
+- Works offline and avoids API key setup
+- Keeps sensitive code local by default
 
-This is how the extension runs embeddings from a single VSIX without requiring user-side native builds.
+## Why It Can Be Lucrative
 
-## Usage
+- Teams pay for productivity gains from faster delivery and reduced debugging time
+- Local/private-by-default positioning is attractive for enterprise and regulated environments
+- MCP compatibility enables integration into modern AI coding workflows
+- Foundation for paid tiers: team memory sync, policy controls, analytics, enterprise support
 
-1. Run `Dev Memory: Open Welcome Page`.
-2. Click **Index Project**.
-3. Run a query from the webview or use `Dev Memory: Search Project Memory`.
+## Key Commands
 
-## Copilot + MCP usage
+- `Dev Memory: Open Welcome Page`
+- `Dev Memory: Index Project`
+- `Dev Memory: Search Project Memory`
 
-If GitHub Copilot Chat has MCP enabled, select `#devmemory-local` and ask workspace questions in plain language.
-
-Verified prompt style:
-
-- `Search this codebase for where welcome page command is registered.`
-
-Recommended prompts:
-
-- `Search this codebase for how indexing works.`
-- `Summarize this repository architecture.`
-- `Answer from codebase: where is semantic_search implemented?`
-
-Preferred MCP tool names used by this server:
+## MCP Tools
 
 - `index_codebase`
 - `search_codebase`
@@ -51,20 +43,74 @@ Preferred MCP tool names used by this server:
 - `get_embedding_status`
 - `answer_from_codebase`
 
-Legacy aliases are also supported:
+## Copilot + MCP Usage
 
-- `ingest_project`, `semantic_search`, `project_summary`, `remember_note`, `embedding_status`
+If GitHub Copilot Chat has MCP enabled, select `#devmemory-local` and ask questions in plain language.
+
+Example prompts:
+
+- `Search this codebase for where welcome page command is registered.`
+- `Search this codebase for how indexing works.`
+- `Summarize this repository architecture.`
+- `Answer from codebase: where is search_codebase implemented?`
+
+## Tech Stack
+
+- TypeScript (monorepo packages)
+- VS Code Extension API
+- Model Context Protocol (MCP SDK)
+- `@xenova/transformers` (WASM embeddings)
+- `onnxruntime-web` runtime path
+- JSON-based local vector index (`.dev-memory/index.json`)
+
+## Branding and Screenshots
+
+Logo:
+
+- `assets/logo/dev-memory-logo.svg`
+- `assets/logo/dev-memory-brain-techy.svg`
+- `assets/logo/dev-memory-brain-techy-128.png`
+
+![Dev Memory Logo](assets/logo/dev-memory-brain-techy-128.png)
+
+Screenshots folder:
+
+- `assets/screenshots/`
+
+Suggested marketplace screenshots:
+
+- `welcome-page.png`
+- `indexing.png`
+- `search-results.png`
+- `copilot-mcp.png`
+
+## Screenshots
+
+Current images are placeholders. Replace with real extension captures before marketplace submission.
+
+![Welcome Page](assets/screenshots/welcome-page.png)
+![Indexing](assets/screenshots/indexing.png)
+![Search Results](assets/screenshots/search-results.png)
+![Copilot MCP](assets/screenshots/copilot-mcp.png)
+
+## Packaging Model
+
+Runtime dependencies are bundled under:
+
+- `dist/runtime/node_modules/...`
+
+This enables one portable VSIX without per-machine native module builds.
 
 ## Notes
 
-- Indexing is explicit/manual today.
+- Indexing is currently explicit/manual.
 - Re-index after a VS Code reload before searching.
 
 ## Privacy
 
-- 100% local
-- No API keys
-- No cloud calls required
+- 100% local processing
+- No cloud dependency for core workflow
+- No API keys required
 
 ## License
 

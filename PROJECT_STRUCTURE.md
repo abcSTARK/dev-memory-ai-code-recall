@@ -64,8 +64,9 @@ This enables a single VSIX artifact without requiring end-users to compile nativ
 
 ## MCP tools currently exposed
 
-- `ingest_project`
-- `semantic_search`
-- `remember_note`
-- `project_summary`
-- `embedding_status`
+- `index_codebase`
+- `search_codebase`
+- `save_project_note`
+- `summarize_codebase`
+- `get_embedding_status`
+- `answer_from_codebase`

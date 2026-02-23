@@ -63,6 +63,36 @@ Example prompts:
 - `onnxruntime-web` runtime path
 - JSON-based local vector index (`.dev-memory/index.json`)
 
+## Branding and Screenshots
+
+Logo:
+
+- `assets/logo/dev-memory-logo.svg`
+- `assets/logo/dev-memory-brain-techy.svg`
+- `assets/logo/dev-memory-brain-techy-128.png`
+
+![Dev Memory Logo](assets/logo/dev-memory-brain-techy-128.png)
+
+Screenshots folder:
+
+- `assets/screenshots/`
+
+Suggested marketplace screenshots:
+
+- `welcome-page.png`
+- `indexing.png`
+- `search-results.png`
+- `copilot-mcp.png`
+
+## Screenshots
+
+Current images are placeholders. Replace with real extension captures before marketplace submission.
+
+![Welcome Page](assets/screenshots/welcome-page.png)
+![Indexing](assets/screenshots/indexing.png)
+![Search Results](assets/screenshots/search-results.png)
+![Copilot MCP](assets/screenshots/copilot-mcp.png)
+
 ## Packaging Model
 
 Runtime dependencies are bundled under:
