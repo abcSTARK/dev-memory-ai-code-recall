@@ -19,6 +19,11 @@
 
 - Switched Marketplace README media to bundled `media/` assets for reliable in-product and Marketplace rendering.
 
+## 1.0.3
+
+- Updated publisher metadata and release prep for Marketplace publish workflow.
+- Finalized bundled README media rendering approach (`media/`) for consistent GitHub and Marketplace display.
+
 ## 1.0.0
 
 - Initial release:
