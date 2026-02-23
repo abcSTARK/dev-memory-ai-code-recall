@@ -63,3 +63,22 @@ __pycache__/
 
 # dev memory storage (JSON index)
 **/.dev-memory/
+
+# Allow published documentation/marketplace media assets
+!assets/
+!assets/**/*.png
+!assets/**/*.jpg
+!assets/**/*.jpeg
+!assets/**/*.gif
+!assets/**/*.svg
+!packages/vscode-extension/assets/
+!packages/vscode-extension/assets/**/*.png
+!packages/vscode-extension/assets/**/*.jpg
+!packages/vscode-extension/assets/**/*.jpeg
+!packages/vscode-extension/assets/**/*.gif
+!packages/vscode-extension/assets/**/*.svg
+!packages/vscode-extension/media/
+!packages/vscode-extension/media/**/*.png
+!packages/vscode-extension/media/**/*.jpg
+!packages/vscode-extension/media/**/*.jpeg
+!packages/vscode-extension/media/**/*.gif
