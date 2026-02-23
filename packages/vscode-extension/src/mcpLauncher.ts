@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import { pathToFileURL } from 'url';
 
 // The extension previously communicated with a simple newline-delimited JSON
 // protocol. After upgrading to the official MCP SDK the server now expects the
@@ -162,8 +163,16 @@ export function launchMCPServer(extensionPath: string | undefined, outputChannel
   }
 
   outputChannel.appendLine('[Dev Memory] Spawning MCP server process at: ' + mcpPath);
+  const runtimeXenovaEntry = path.join(path.dirname(mcpPath), 'runtime', 'node_modules', '@xenova', 'transformers', 'src', 'transformers.js');
+  const childEnv = { ...process.env } as NodeJS.ProcessEnv;
+  if (fs.existsSync(runtimeXenovaEntry)) {
+    childEnv.DEVMEMORY_XENOVA_IMPORT = pathToFileURL(runtimeXenovaEntry).href;
+    outputChannel.appendLine('[Dev Memory] Using packaged Xenova runtime: ' + runtimeXenovaEntry);
+  }
+
   const proc = spawn('node', [mcpPath], {
     cwd: path.dirname(mcpPath),
+    env: childEnv,
     stdio: ['pipe', 'pipe', 'pipe'],
     shell: true
   });

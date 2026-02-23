@@ -1,88 +1,21 @@
-import * as vscode from 'vscode';
-import { launchMCPServer, sendMCPRequest } from './mcpLauncher';
+import * as vscode from "vscode";
+import { launchMCPServer, sendMCPRequest } from "./mcpLauncher";
 
 let mcpProcess: ReturnType<typeof launchMCPServer> | undefined;
 let outputChannel: vscode.OutputChannel;
+let welcomePanel: vscode.WebviewPanel | undefined;
 
-export function activate(context: vscode.ExtensionContext) {
-  const fs = require('fs');
-  const path = require('path');
-  function registerMCPServer(rootPath: string) {
-    const vscodeDir = path.join(rootPath, '.vscode');
-    if (!fs.existsSync(vscodeDir)) {
-      try { fs.mkdirSync(vscodeDir, { recursive: true }); } catch (e) { /* ignore */ }
-    }
-    const mcpConfigPath = path.join(vscodeDir, 'mcp.json');
-    // Prefer workspace-relative bundle path when available (safer in monorepos).
-    // Fall back to installed extension bundle path when not running from source.
-    const workspaceBundleRel = '${workspaceFolder}/packages/vscode-extension/dist/mcp-server.bundle.js';
-    let serverArgs: string[] = [workspaceBundleRel];
-    if (context.extensionPath) {
-      const extBundle = path.join(context.extensionPath, 'dist', 'mcp-server.bundle.js');
-      const workspaceBundleAbs = path.join(rootPath, 'packages', 'vscode-extension', 'dist', 'mcp-server.bundle.js');
-      // If the workspace has the bundle (dev mode), prefer the workspace variable form which VS Code will expand.
-      if (fs.existsSync(workspaceBundleAbs)) {
-        serverArgs = [workspaceBundleRel];
-        outputChannel.appendLine(`[Dev Memory] registerMCPServer: using workspace-relative MCP bundle in mcp.json: ${workspaceBundleRel}`);
-      } else if (fs.existsSync(extBundle)) {
-        // Installed extension: write absolute path to the installed bundle so MCP can be launched directly.
-        serverArgs = [extBundle];
-        outputChannel.appendLine(`[Dev Memory] registerMCPServer: using installed extension MCP bundle in mcp.json: ${extBundle}`);
-      } else {
-        // default to workspace-relative variable if nothing else found
-        serverArgs = [workspaceBundleRel];
-        outputChannel.appendLine(`[Dev Memory] registerMCPServer: no bundle found; defaulting to workspace-relative entry: ${workspaceBundleRel}`);
-      }
-    }
+type EmbeddingStatus = {
+  initialized?: boolean;
+  provider?: string;
+  model?: string;
+  dimensions?: number;
+  fallback?: boolean;
+  lastError?: string | null;
+};
 
-    const newConfig = {
-      servers: {
-        'devmemory-local': {
-          type: 'stdio',
-          command: 'node',
-          args: serverArgs
-        }
-      }
-    };
-    try {
-      let mergedConfig = newConfig;
-      if (fs.existsSync(mcpConfigPath)) {
-        try {
-          const existing = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8'));
-          // Merge top-level while preferring the new mcpServer fields where necessary
-          mergedConfig = { ...existing, ...newConfig };
-          // Ensure we do not add or preserve deprecated fields that the extension shouldn't write
-          if ('tools' in mergedConfig) delete mergedConfig.tools;
-          if ('launchedAt' in mergedConfig) delete mergedConfig.launchedAt;
-        } catch (parseErr) {
-          // Backup the malformed file and continue with a fresh config
-          const backup = mcpConfigPath + `.bak.${Date.now()}`;
-          try {
-            fs.copyFileSync(mcpConfigPath, backup);
-            outputChannel.appendLine(`[Dev Memory] Existing mcp.json was invalid JSON; backed up to ${backup}`);
-          } catch (copyErr) {
-            outputChannel.appendLine(`[Dev Memory] Failed to back up invalid mcp.json: ${copyErr}`);
-          }
-          mergedConfig = newConfig;
-        }
-      }
-      fs.writeFileSync(mcpConfigPath, JSON.stringify(mergedConfig, null, 2));
-      outputChannel.appendLine(`[Dev Memory] MCP server registered/updated in mcp.json.`);
-    } catch (err) {
-      outputChannel.appendLine(`[Dev Memory] Failed to write mcp.json: ${err}`);
-    }
-  }
-  outputChannel = vscode.window.createOutputChannel('Dev Memory');
-  outputChannel.show(true);
-
-  // Show welcome page on activation
-  const panel = vscode.window.createWebviewPanel(
-    'devMemoryWelcome',
-    'Dev Memory — AI Code Recall',
-    vscode.ViewColumn.One,
-    { enableScripts: true }
-  );
-  panel.webview.html = `
+function createWelcomeHtml(): string {
+  return `
     <!doctype html>
     <html lang="en">
     <head>
@@ -91,17 +24,68 @@ export function activate(context: vscode.ExtensionContext) {
       <title>Dev Memory — AI Code Recall</title>
       <style>
         :root { color-scheme: light dark; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; padding: 18px; margin: 0; }
+        body {
+          font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial);
+          padding: 18px;
+          margin: 0;
+          color: var(--vscode-editor-foreground);
+          background: var(--vscode-editor-background);
+        }
         header { display:flex; align-items:center; gap:12px; }
         h1 { font-size:18px; margin:0; }
+        h3 { margin-top:14px; }
         .row { display:flex; gap:8px; margin-top:12px; }
-        button { background:#0e639c; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; }
-        button.secondary { background:#2d2d2d; }
-        input[type="search"] { flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; }
-        .panel { margin-top:14px; padding:12px; border-radius:8px; background:rgba(0,0,0,0.03); }
-        .warning { background: #fff4e5; border-left:4px solid #ffb020; padding:8px; border-radius:4px; margin-top:12px; }
-        pre { background:#0b1220; color:#d6deeb; padding:12px; border-radius:6px; overflow:auto; max-height:240px; }
-        .muted { color:var(--vscode-editor-foreground, #6b6b6b); font-size:12px; }
+        button {
+          background: var(--vscode-button-background, #0e639c);
+          color: var(--vscode-button-foreground, #fff);
+          border: none;
+          padding: 8px 12px;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+        button.secondary {
+          background: var(--vscode-button-secondaryBackground, #3a3d41);
+          color: var(--vscode-button-secondaryForeground, #fff);
+        }
+        input[type="search"] {
+          flex: 1;
+          padding: 8px;
+          border-radius: 6px;
+          border: 1px solid var(--vscode-input-border, #666);
+          background: var(--vscode-input-background);
+          color: var(--vscode-input-foreground);
+        }
+        .panel {
+          margin-top: 14px;
+          padding: 12px;
+          border-radius: 8px;
+          background: var(--vscode-editorWidget-background, rgba(127,127,127,0.1));
+          border: 1px solid var(--vscode-editorWidget-border, transparent);
+        }
+        .warning {
+          background: var(--vscode-inputValidation-warningBackground, #fff4e5);
+          color: var(--vscode-inputValidation-warningForeground, var(--vscode-editor-foreground));
+          border-left: 4px solid var(--vscode-inputValidation-warningBorder, #ffb020);
+          padding: 8px;
+          border-radius: 4px;
+          margin-top: 12px;
+        }
+        code {
+          background: var(--vscode-textCodeBlock-background, rgba(127,127,127,0.15));
+          padding: 2px 4px;
+          border-radius: 4px;
+        }
+        pre {
+          background: var(--vscode-textCodeBlock-background, #0b1220);
+          color: var(--vscode-editor-foreground, #d6deeb);
+          padding: 12px;
+          border-radius: 6px;
+          overflow: auto;
+          max-height: 260px;
+          border: 1px solid var(--vscode-editorWidget-border, transparent);
+        }
+        .muted { color: var(--vscode-descriptionForeground, #6b6b6b); font-size: 12px; }
+        .kpi { margin-top: 6px; font-size: 13px; }
       </style>
     </head>
     <body>
@@ -126,15 +110,20 @@ export function activate(context: vscode.ExtensionContext) {
       <div class="panel">
         <div class="muted">Workspace root:</div>
         <div id="rootPath">(not available)</div>
-        <div id="status" style="margin-top:8px;">Status: <strong id="statusText">idle</strong></div>
+        <div class="kpi">Status: <strong id="statusText">idle</strong></div>
+        <div class="kpi">
+          Embedding provider:
+          <strong id="embeddingProvider">unknown</strong>
+          <span id="embeddingMeta" class="muted">pending...</span>
+        </div>
       </div>
 
       <div class="warning">
         Note: Indexing writes a local vector index under <code>workspaceRoot/.dev-memory/index.json</code>.
-        After you reload the window, you must re-run Index Project to re-create the index before search will return results.
+        After you reload the window, run Index Project again before searching.
       </div>
 
-      <h3 style="margin-top:14px;">Results</h3>
+      <h3>Results</h3>
       <div id="results"><pre id="resultsPre">No results yet.</pre></div>
 
       <script>
@@ -146,6 +135,8 @@ export function activate(context: vscode.ExtensionContext) {
         const statusText = document.getElementById('statusText');
         const rootPathEl = document.getElementById('rootPath');
         const resultsPre = document.getElementById('resultsPre');
+        const embeddingProvider = document.getElementById('embeddingProvider');
+        const embeddingMeta = document.getElementById('embeddingMeta');
 
         indexBtn.addEventListener('click', () => {
           statusText.textContent = 'indexing...';
@@ -167,11 +158,15 @@ export function activate(context: vscode.ExtensionContext) {
           const msg = event.data;
           if (msg.type === 'init') {
             rootPathEl.textContent = msg.rootPath || '(no workspace)';
+            vscode.postMessage({ command: 'embeddingStatus', warmup: true });
           } else if (msg.type === 'status') {
             statusText.textContent = msg.text;
           } else if (msg.type === 'result') {
             statusText.textContent = 'idle';
             resultsPre.textContent = JSON.stringify(msg.data, null, 2);
+          } else if (msg.type === 'embedding') {
+            embeddingProvider.textContent = msg.provider || 'unknown';
+            embeddingMeta.textContent = msg.meta || 'n/a';
           } else if (msg.type === 'error') {
             statusText.textContent = 'error';
             resultsPre.textContent = msg.error;
@@ -181,102 +176,234 @@ export function activate(context: vscode.ExtensionContext) {
     </body>
     </html>
   `;
+}
 
-  // Provide initial workspace rootPath to the webview and handle messages from it
-  const initialRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-  panel.webview.postMessage({ type: 'init', rootPath: initialRoot });
-
-  panel.webview.onDidReceiveMessage(async (message) => {
-    try {
-      if (!message || !message.command) return;
-      if (message.command === 'index') {
-        outputChannel.appendLine('[Dev Memory] Webview requested index (force=' + Boolean(message.force) + ')');
-        panel.webview.postMessage({ type: 'status', text: 'indexing...' });
-        const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        if (!rootPath) {
-          const err = 'No workspace folder to index.';
-          outputChannel.appendLine('[Dev Memory] ' + err);
-          panel.webview.postMessage({ type: 'error', error: err });
-          return;
-        }
-        const res = await sendMCPRequest(mcpProcess, { method: 'tools/call', params: { name: 'ingest_project', arguments: { rootPath, force: Boolean(message.force) } } });
-        outputChannel.appendLine('[Dev Memory] Indexing complete (webview).');
-        panel.webview.postMessage({ type: 'result', data: res });
-      } else if (message.command === 'search') {
-        outputChannel.appendLine('[Dev Memory] Webview requested search: ' + message.query);
-        panel.webview.postMessage({ type: 'status', text: 'searching...' });
-        const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        if (!rootPath) {
-          const err = 'No workspace folder for search.';
-          outputChannel.appendLine('[Dev Memory] ' + err);
-          panel.webview.postMessage({ type: 'error', error: err });
-          return;
-        }
-        const res = await sendMCPRequest(mcpProcess, { method: 'tools/call', params: { name: 'semantic_search', arguments: { query: message.query, k: 10, rootPath } } });
-        outputChannel.appendLine('[Dev Memory] Search complete (webview).');
-        // semantic_search returns its payload inside result.content as a text block
-        let parsed = res;
-        try {
-          if (res && Array.isArray(res.content)) {
-            const textBlock = res.content.find((c: any) => c.type === 'text');
-            if (textBlock && typeof textBlock.text === 'string') {
-              parsed = JSON.parse(textBlock.text);
-            }
-          }
-        } catch (e) {
-          // fall back to raw result
-          parsed = res;
-        }
-        panel.webview.postMessage({ type: 'result', data: parsed });
+function parseEmbeddingStatus(raw: any): EmbeddingStatus {
+  if (raw && Array.isArray(raw.content)) {
+    const textBlock = raw.content.find((c: any) => c.type === "text");
+    if (textBlock && typeof textBlock.text === "string") {
+      try {
+        return JSON.parse(textBlock.text);
+      } catch {
+        return {};
       }
-    } catch (err) {
-      const em = err && (err as any).message ? (err as any).message : String(err);
-      outputChannel.appendLine('[Dev Memory] Error handling webview message: ' + em);
-      panel.webview.postMessage({ type: 'error', error: em });
     }
-  });
+  }
+  return raw || {};
+}
 
-  // Pass extension context so launcher can prefer a bundled MCP server inside the installed extension
+async function refreshEmbeddingStatus(panel: vscode.WebviewPanel, rootPath?: string, warmup = false) {
+  try {
+    const statusRaw = await sendMCPRequest(mcpProcess, {
+      method: "tools/call",
+      params: { name: "embedding_status", arguments: { ...(rootPath ? { rootPath } : {}), warmup } }
+    });
+    const status = parseEmbeddingStatus(statusRaw);
+    const provider = status.provider || "uninitialized";
+    const metaParts: string[] = [];
+    if (status.model) metaParts.push(`model=${status.model}`);
+    if (status.dimensions) metaParts.push(`dim=${status.dimensions}`);
+    if (status.fallback) metaParts.push("fallback=enabled");
+    if (status.lastError) metaParts.push("lastError=present");
+    panel.webview.postMessage({
+      type: "embedding",
+      provider,
+      meta: metaParts.join(" | ") || "n/a"
+    });
+    outputChannel.appendLine(`[Dev Memory] Embedding status: provider=${provider} ${metaParts.join(" ")}`.trim());
+  } catch (err) {
+    const msg = err && (err as any).message ? (err as any).message : String(err);
+    outputChannel.appendLine(`[Dev Memory] Failed to read embedding status: ${msg}`);
+    panel.webview.postMessage({ type: "embedding", provider: "unknown", meta: "status unavailable" });
+  }
+}
+
+export function activate(context: vscode.ExtensionContext) {
+  const fs = require("fs");
+  const path = require("path");
+
+  function registerMCPServer(rootPath: string) {
+    const vscodeDir = path.join(rootPath, ".vscode");
+    if (!fs.existsSync(vscodeDir)) {
+      try { fs.mkdirSync(vscodeDir, { recursive: true }); } catch { /* ignore */ }
+    }
+    const mcpConfigPath = path.join(vscodeDir, "mcp.json");
+    const workspaceBundleRel = "${workspaceFolder}/packages/vscode-extension/dist/mcp-server.bundle.js";
+    let serverArgs: string[] = [workspaceBundleRel];
+    if (context.extensionPath) {
+      const extBundle = path.join(context.extensionPath, "dist", "mcp-server.bundle.js");
+      const workspaceBundleAbs = path.join(rootPath, "packages", "vscode-extension", "dist", "mcp-server.bundle.js");
+      if (fs.existsSync(workspaceBundleAbs)) {
+        serverArgs = [workspaceBundleRel];
+      } else if (fs.existsSync(extBundle)) {
+        serverArgs = [extBundle];
+      }
+    }
+
+    const newConfig = {
+      servers: {
+        "devmemory-local": {
+          type: "stdio",
+          command: "node",
+          args: serverArgs
+        }
+      }
+    };
+    try {
+      let mergedConfig = newConfig;
+      if (fs.existsSync(mcpConfigPath)) {
+        try {
+          const existing = JSON.parse(fs.readFileSync(mcpConfigPath, "utf8"));
+          mergedConfig = { ...existing, ...newConfig };
+          if ("tools" in mergedConfig) delete (mergedConfig as any).tools;
+          if ("launchedAt" in mergedConfig) delete (mergedConfig as any).launchedAt;
+        } catch {
+          mergedConfig = newConfig;
+        }
+      }
+      fs.writeFileSync(mcpConfigPath, JSON.stringify(mergedConfig, null, 2));
+      outputChannel.appendLine("[Dev Memory] MCP server registered/updated in mcp.json.");
+    } catch (err) {
+      outputChannel.appendLine(`[Dev Memory] Failed to write mcp.json: ${err}`);
+    }
+  }
+
+  function openWelcomePage() {
+    if (welcomePanel) {
+      welcomePanel.reveal(vscode.ViewColumn.One);
+      return;
+    }
+
+    welcomePanel = vscode.window.createWebviewPanel(
+      "devMemoryWelcome",
+      "Dev Memory — AI Code Recall",
+      vscode.ViewColumn.One,
+      { enableScripts: true }
+    );
+    welcomePanel.webview.html = createWelcomeHtml();
+
+    const initialRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+    welcomePanel.webview.postMessage({ type: "init", rootPath: initialRoot });
+
+    welcomePanel.onDidDispose(() => {
+      welcomePanel = undefined;
+    });
+
+    welcomePanel.webview.onDidReceiveMessage(async (message: any) => {
+      try {
+        if (!message || !message.command) return;
+        const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+        if (message.command === "embeddingStatus") {
+          await refreshEmbeddingStatus(welcomePanel!, rootPath, Boolean(message.warmup));
+          return;
+        }
+
+        if (message.command === "index") {
+          outputChannel.appendLine(`[Dev Memory] Webview requested index (force=${Boolean(message.force)})`);
+          welcomePanel!.webview.postMessage({ type: "status", text: "indexing..." });
+          if (!rootPath) {
+            const err = "No workspace folder to index.";
+            welcomePanel!.webview.postMessage({ type: "error", error: err });
+            return;
+          }
+          const res = await sendMCPRequest(mcpProcess, {
+            method: "tools/call",
+            params: { name: "ingest_project", arguments: { rootPath, force: Boolean(message.force) } }
+          });
+          welcomePanel!.webview.postMessage({ type: "result", data: res });
+          await refreshEmbeddingStatus(welcomePanel!, rootPath);
+          return;
+        }
+
+        if (message.command === "search") {
+          outputChannel.appendLine(`[Dev Memory] Webview requested search: ${message.query}`);
+          welcomePanel!.webview.postMessage({ type: "status", text: "searching..." });
+          if (!rootPath) {
+            const err = "No workspace folder for search.";
+            welcomePanel!.webview.postMessage({ type: "error", error: err });
+            return;
+          }
+          const res = await sendMCPRequest(mcpProcess, {
+            method: "tools/call",
+            params: { name: "semantic_search", arguments: { query: message.query, k: 10, rootPath } }
+          });
+
+          let parsed = res;
+          try {
+            if (res && Array.isArray(res.content)) {
+              const textBlock = res.content.find((c: any) => c.type === "text");
+              if (textBlock && typeof textBlock.text === "string") {
+                parsed = JSON.parse(textBlock.text);
+              }
+            }
+          } catch {
+            parsed = res;
+          }
+          welcomePanel!.webview.postMessage({ type: "result", data: parsed });
+          await refreshEmbeddingStatus(welcomePanel!, rootPath);
+        }
+      } catch (err) {
+        const em = err && (err as any).message ? (err as any).message : String(err);
+        outputChannel.appendLine(`[Dev Memory] Error handling webview message: ${em}`);
+        welcomePanel?.webview.postMessage({ type: "error", error: em });
+      }
+    });
+  }
+
+  outputChannel = vscode.window.createOutputChannel("Dev Memory");
+  outputChannel.show(true);
+
   mcpProcess = launchMCPServer(context.extensionPath, outputChannel);
-  outputChannel.appendLine('[Dev Memory] MCP server launched.');
+  outputChannel.appendLine("[Dev Memory] MCP server launched.");
+
   const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (rootPath) {
     registerMCPServer(rootPath);
   }
 
+  openWelcomePage();
+
   context.subscriptions.push(
-    vscode.commands.registerCommand('devmemory.indexProject', async () => {
-      outputChannel.appendLine('[Dev Memory] Indexing project...');
-      const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-      if (!rootPath) {
-        outputChannel.appendLine('[Dev Memory] No workspace folder found.');
-        return;
-      }
-      const result = await sendMCPRequest(mcpProcess, {
-        method: 'tools/call',
-        params: { name: 'ingest_project', arguments: { rootPath } }
-      });
-      outputChannel.appendLine('[Dev Memory] Indexing complete.');
-      outputChannel.appendLine('[Dev Memory] Result:');
-      outputChannel.appendLine(JSON.stringify(result, null, 2));
+    vscode.commands.registerCommand("devmemory.openWelcome", () => {
+      openWelcomePage();
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('devmemory.searchMemory', async () => {
-      outputChannel.appendLine('[Dev Memory] Searching project memory...');
-      const query = await vscode.window.showInputBox({ prompt: 'Enter search query' });
-      if (!query) {
-        outputChannel.appendLine('[Dev Memory] No query entered.');
+    vscode.commands.registerCommand("devmemory.indexProject", async () => {
+      outputChannel.appendLine("[Dev Memory] Indexing project...");
+      const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!rootPath) {
+        outputChannel.appendLine("[Dev Memory] No workspace folder found.");
         return;
       }
-        const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        const result = await sendMCPRequest(mcpProcess, {
-          method: 'tools/call',
-          params: { name: 'semantic_search', arguments: { query, rootPath } }
-        });
-      outputChannel.appendLine('[Dev Memory] Search results:');
+      const result = await sendMCPRequest(mcpProcess, {
+        method: "tools/call",
+        params: { name: "ingest_project", arguments: { rootPath } }
+      });
+      outputChannel.appendLine("[Dev Memory] Indexing complete.");
       outputChannel.appendLine(JSON.stringify(result, null, 2));
+      if (welcomePanel) await refreshEmbeddingStatus(welcomePanel, rootPath);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("devmemory.searchMemory", async () => {
+      outputChannel.appendLine("[Dev Memory] Searching project memory...");
+      const query = await vscode.window.showInputBox({ prompt: "Enter search query" });
+      if (!query) {
+        outputChannel.appendLine("[Dev Memory] No query entered.");
+        return;
+      }
+      const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      const result = await sendMCPRequest(mcpProcess, {
+        method: "tools/call",
+        params: { name: "semantic_search", arguments: { query, rootPath } }
+      });
+      outputChannel.appendLine("[Dev Memory] Search results:");
+      outputChannel.appendLine(JSON.stringify(result, null, 2));
+      if (welcomePanel) await refreshEmbeddingStatus(welcomePanel, rootPath);
     })
   );
 }

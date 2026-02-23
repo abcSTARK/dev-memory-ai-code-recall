@@ -10,7 +10,8 @@
   "activationEvents": [
     "onStartupFinished",
     "onCommand:devmemory.indexProject",
-    "onCommand:devmemory.searchMemory"
+    "onCommand:devmemory.searchMemory",
+    "onCommand:devmemory.openWelcome"
   ],
   "main": "./dist/extension.js",
   "categories": [
@@ -25,6 +26,10 @@
       {
         "command": "devmemory.searchMemory",
         "title": "Dev Memory: Search Project Memory"
+      },
+      {
+        "command": "devmemory.openWelcome",
+        "title": "Dev Memory: Open Welcome Page"
       }
     ]
   },

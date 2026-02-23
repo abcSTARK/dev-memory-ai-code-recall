@@ -4,5 +4,5 @@ export function registerTools(server: any, ctx?: { z?: any }) {
 	require('./search').register(server, ctx);
 	require('./remember').register(server, ctx);
 	require('./summary').register(server, ctx);
+	require('./embedding-status').register(server, ctx);
 }
-

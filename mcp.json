@@ -1,0 +1,13 @@
+{
+  "mcpServer": {
+    "entry": "/Users/abcstark/.vscode/extensions/devmemory.devmemory-ai-code-recall-1.0.0/dist/mcp-server.bundle.js",
+    "protocol": "stdio",
+    "tools": [
+      "ingest_project",
+      "semantic_search",
+      "remember_note",
+      "project_summary"
+    ],
+    "launchedAt": "2026-02-23T11:59:06.405Z"
+  }
+}

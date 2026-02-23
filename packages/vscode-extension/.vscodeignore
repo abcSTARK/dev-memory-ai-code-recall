@@ -1,5 +1,17 @@
 .vscode
-node_modules
+node_modules/**
+!node_modules/@xenova/**
+!node_modules/@huggingface/**
+!node_modules/@protobufjs/**
+!node_modules/onnxruntime-web/**
+!node_modules/onnxruntime-common/**
+!node_modules/onnx-proto/**
+!node_modules/protobufjs/**
+!node_modules/flatbuffers/**
+!node_modules/guid-typescript/**
+!node_modules/long/**
+!node_modules/platform/**
+!node_modules/sharp/**
 # we bundle the server; do not include any workspace packages or their dependencies
 packages/**
 .vsce-dist/**
